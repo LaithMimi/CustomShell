@@ -54,15 +54,15 @@ void deleteAlias(char *name) {
         perror("Alias doesn't exist");
     }
 }
-// Function to print all aliases
-void printAliases() {
+
+void printAliases() {// Function to print all aliases
     printf("Current aliases:\n");
     for (int i = 0; i < aliasCount; i++) {
         printf("alias %s='%s'\n", aliasArr[i].name, aliasArr[i].cmdLine);
     }
 }
 
-int execute_with_aliases(char* argv[]) {
+int executeWithAliases(char* argv[]) {
     // Check if the command matches any alias and replace it
     for (int i = 0; i < aliasCount; i++) {
         if (strcmp(argv[0], aliasArr[i].name) == 0) {
@@ -78,7 +78,7 @@ void displayPrompt(int numOfCmd, int ActiveAliases, int ScriptLines) {
     printf("#cmd:%d|#alias:%d|#script lines:%d>", numOfCmd, ActiveAliases, ScriptLines);
 }
 
-void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines) {
+void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, int *activeAliases) {
     FILE *file = fopen(fileName, "r");
     if (!file) {
         perror("Error opening script file");
@@ -114,12 +114,42 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines) {
 
         (*scriptLines)++;
 
+        if (argCount > MAX_ARGS) {
+            perror("Illegal Command: Too Many Arguments\n");
+            continue;
+        }
+        if (strlen(line) > MAX_CMD_LEN) {
+            perror("Illegal Command: Too Many Characters\n");
+            continue;
+        }
+
+        if (strcmp(argv[0], "alias") == 0) {
+            if (argCount == 3) {
+                defAlias(argv[1], argv[2]);
+                *activeAliases = aliasCount;
+            } else if (argCount == 1) {
+                printAliases();
+            } else {
+                perror("Usage: alias name command\n");
+            }
+            continue;
+        } else if (strcmp(argv[0], "unalias") == 0) {
+            if (argCount == 2) {
+                deleteAlias(argv[1]);
+                *activeAliases = aliasCount;
+            } else {
+                perror("Usage: unalias name\n");
+            }
+            continue;
+        }
+
         pid_t PID = fork();
+
         if (PID == -1) {
             perror("Error: fork failed");
             exit(EXIT_FAILURE);
         } else if (PID == 0) { // Child process
-            if (execute_with_aliases(argv) == -1) {
+            if (executeWithAliases(argv) == -1) {
                 fprintf(stderr, "\nError executing command %s\n", argv[0]);
                 exit(EXIT_FAILURE);
             }
@@ -185,8 +215,6 @@ int main() {
         if (argCount == 0)
             continue;
 
-        //script settings : here scriptLines++;
-
         if (argCount > MAX_ARGS) {
             perror("Illegal Command: Too Many Arguments\n");
             continue;
@@ -208,17 +236,13 @@ int main() {
             continue;
         }
         else if (strcmp(argv[0], "unalias") == 0) {
-            if (argCount == 2) {
                 deleteAlias(argv[1]);
                 activeAliases = aliasCount;
-            } else {
-                perror("Usage: unalias name\n");
-            }
             continue;
         }
         else if (strcmp(argv[0], "source") == 0) {
             if (argCount == 2) {
-                executeScriptFile(argv[1], &numOfCmd, &scriptLines);
+                executeScriptFile(argv[1], &numOfCmd, &scriptLines,&activeAliases);
             } else {
                 perror("Usage: source <script_file>\n");
             }
@@ -231,12 +255,15 @@ int main() {
             free(cmd);
             exit(EXIT_FAILURE);
         } else if (PID == 0) { // Child process
-            if (execute_with_aliases(argv) == -1) {
-                fprintf(stderr, "\nError executing command %s\n", argv[0]);
+            if (executeWithAliases(argv) == -1) {
+                execvp(argv[0], argv);
+
+                fprintf(stderr, "Error executing command %s\n", argv[0]);
                 exit(EXIT_FAILURE);
             }
 
         } else { // Parent process
+            usleep(200000);
             int status;
             waitpid(PID, &status, 0); // Wait for the child process to complete
 
