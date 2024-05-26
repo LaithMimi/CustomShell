@@ -55,6 +55,12 @@ build CMakeFiles/Ex1.dir/ex1.c.o: C_COMPILER__Ex1_unscanned_Debug /home/laith/CL
   OBJECT_DIR = CMakeFiles/Ex1.dir
   OBJECT_FILE_DIR = CMakeFiles/Ex1.dir
 
+build CMakeFiles/Ex1.dir/ex1_24.c.o: C_COMPILER__Ex1_unscanned_Debug /home/laith/CLionProjects/Ex1/ex1_24.c || cmake_object_order_depends_target_Ex1
+  DEP_FILE = CMakeFiles/Ex1.dir/ex1_24.c.o.d
+  FLAGS = -g -std=gnu11 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles/Ex1.dir
+  OBJECT_FILE_DIR = CMakeFiles/Ex1.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target Ex1
@@ -63,7 +69,7 @@ build CMakeFiles/Ex1.dir/ex1.c.o: C_COMPILER__Ex1_unscanned_Debug /home/laith/CL
 #############################################
 # Link the executable Ex1
 
-build Ex1: C_EXECUTABLE_LINKER__Ex1_Debug CMakeFiles/Ex1.dir/ex1.c.o
+build Ex1: C_EXECUTABLE_LINKER__Ex1_Debug CMakeFiles/Ex1.dir/ex1.c.o CMakeFiles/Ex1.dir/ex1_24.c.o
   FLAGS = -g
   OBJECT_DIR = CMakeFiles/Ex1.dir
   POST_BUILD = :
