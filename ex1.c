@@ -18,7 +18,6 @@ typedef struct {
 Alias aliasArr[MAX_ALIASES]; // Storage for up to 100 aliased commands
 int aliasCount = 0;          // Counter for the number of aliases
 
-
 // Function prototypes
 void displayPrompt(int numOfCmd, int activeAliases, int scriptLines);
 int pairsOfQuotes(const char *cmd, char ch);
