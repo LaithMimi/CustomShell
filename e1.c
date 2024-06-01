@@ -14,9 +14,9 @@
 typedef struct {
     char *name;
     char *cmdLine;
-} Alias;
+} AliasNode;
 
-Alias aliasArr[MAX_ALIASES]; // Storage for up to 100 aliased commands
+AliasNode aliasList[MAX_ALIASES]; // Storage for up to 100 aliased commands
 int aliasCount = 0;          // Counter for the number of aliases
 
 // Function prototypes
@@ -49,14 +49,14 @@ int pairsOfQuotes(const char *cmd, char ch) {
 void printAliases() {// Function to print all aliases
     printf("Current aliases:\n");
     for (int i = 0; i < aliasCount; i++) {
-        printf("alias %s='%s'\n", aliasArr[i].name, aliasArr[i].cmdLine);
+        printf("alias %s='%s'\n", aliasList[i].name, aliasList[i].cmdLine);
     }
 }
 
 void defAlias(char *name, char *cmdLine) {
     // Check if the alias already exists
     for (int i = 0; i < aliasCount; i++) {
-        if (strcmp(aliasArr[i].name, name) == 0) {
+        if (strcmp(aliasList[i].name, name) == 0) {
             perror("This command already exists");
             return;
         }
@@ -64,11 +64,11 @@ void defAlias(char *name, char *cmdLine) {
 
     // Add the new alias to the array
     if (aliasCount < MAX_ALIASES) {
-        aliasArr[aliasCount].name = strdup(name);
-        aliasArr[aliasCount].cmdLine = strdup(cmdLine);
+        aliasList[aliasCount].name = strdup(name);
+        aliasList[aliasCount].cmdLine = strdup(cmdLine);
         aliasCount++;
     } else {
-        perror("Alias limit reached");
+        perror("AliasNode limit reached");
     }
 }
 
@@ -76,17 +76,17 @@ void deleteAlias(char *name) {
     bool found = false;
     for (int i = 0; i < aliasCount; i++) {
         if (found) {
-            aliasArr[i - 1] = aliasArr[i];
-        } else if (strcmp(aliasArr[i].name, name) == 0) {
-            free(aliasArr[i].name);
-            free(aliasArr[i].cmdLine);
+            aliasList[i - 1] = aliasList[i];
+        } else if (strcmp(aliasList[i].name, name) == 0) {
+            free(aliasList[i].name);
+            free(aliasList[i].cmdLine);
             found = true;
         }
     }
     if (found) {
         aliasCount--;
     } else {
-        perror("Alias doesn't exist");
+        perror("AliasNode doesn't exist");
     }
 }
 
@@ -181,9 +181,9 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
 int executeWithAliases(char* argv[]) {
     // Check if the command matches any alias and replace it
     for (int i = 0; i < aliasCount; i++) {
-        if (strcmp(argv[0], aliasArr[i].name) == 0) {
-            printf("Alias match: %s -> %s\n", aliasArr[i].name, aliasArr[i].cmdLine);
-            char *token = strtok(aliasArr[i].cmdLine, " "); // Tokenize the command line
+        if (strcmp(argv[0], aliasList[i].name) == 0) {
+            printf("AliasNode match: %s -> %s\n", aliasList[i].name, aliasList[i].cmdLine);
+            char *token = strtok(aliasList[i].cmdLine, " "); // Tokenize the command line
             int argCount = 0;
 
             while (token != NULL) {
@@ -325,8 +325,8 @@ int main() {
     free(cmd);
     // Free any allocated memory for aliases
     for (int i = 0; i < aliasCount; i++) {
-        free(aliasArr[i].name);
-        free(aliasArr[i].cmdLine);
+        free(aliasList[i].name);
+        free(aliasList[i].cmdLine);
     }
 
     return 0;
@@ -347,9 +347,9 @@ int main() {
 typedef struct {
     char *name;
     char *cmdLine;
-} Alias;
+} AliasNode;
 
-Alias *aliasArr;
+AliasNode *aliasList;
 int aliasCount = 0;          // Counter for the number of aliases
 
 // Function prototypes
@@ -382,16 +382,16 @@ int pairsOfQuotes(const char *cmd, char ch) {
 void printAliases() {// Function to print all aliases
     printf("Current aliases:\n");
     for (int i = 0; i < aliasCount; i++) {
-        printf("alias %s='%s'\n", aliasArr[i].name, aliasArr[i].cmdLine);
+        printf("alias %s='%s'\n", aliasList[i].name, aliasList[i].cmdLine);
     }
 }
 
 void defAlias(char *name, char *cmd) {
     if (aliasCount < MAX_ALIASES) {
-        aliasArr[aliasCount].name = malloc(strlen(name) + 1);
-        strcpy(aliasArr[aliasCount].name, name);
-        aliasArr[aliasCount].cmdLine = malloc(strlen(cmd) + 1);
-        strcpy(aliasArr[aliasCount].cmdLine, cmd);
+        aliasList[aliasCount].name = malloc(strlen(name) + 1);
+        strcpy(aliasList[aliasCount].name, name);
+        aliasList[aliasCount].cmdLine = malloc(strlen(cmd) + 1);
+        strcpy(aliasList[aliasCount].cmdLine, cmd);
         aliasCount++;
     } else {
         perror("Error: Maximum aliases reached");
@@ -403,11 +403,11 @@ void deleteAlias(char *name) {
     for (int i = 0; i < aliasCount; i++) {
         if (found) {
             // Shift the remaining aliases down one position
-            aliasArr[i - 1] = aliasArr[i];
-        } else if (strcmp(aliasArr[i].name, name) == 0) {
+            aliasList[i - 1] = aliasList[i];
+        } else if (strcmp(aliasList[i].name, name) == 0) {
             // Free the memory of the alias to be deleted
-            free(aliasArr[i].name);
-            free(aliasArr[i].cmdLine);
+            free(aliasList[i].name);
+            free(aliasList[i].cmdLine);
             found = true;
         }
     }
@@ -415,13 +415,13 @@ void deleteAlias(char *name) {
     if (found) {
         aliasCount--;
         // Resize the alias array to release unused memory
-        aliasArr = realloc(aliasArr, aliasCount * sizeof(Alias));
-        if (aliasArr == NULL && aliasCount > 0) {
+        aliasList = realloc(aliasList, aliasCount * sizeof(AliasNode));
+        if (aliasList == NULL && aliasCount > 0) {
             perror("Failed to resize alias array");
             exit(EXIT_FAILURE);
         }
     } else {
-        fprintf(stderr, "Alias doesn't exist\n");
+        fprintf(stderr, "AliasNode doesn't exist\n");
     }
 }
 
@@ -516,11 +516,11 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
 int executeWithAliases(char* argv[]) {
     // Check if the command matches any alias and replace it
     for (int i = 0; i < aliasCount; i++) {
-        if (strcmp(argv[0], aliasArr[i].name) == 0) {
-            printf("Alias match: %s -> %s\n", aliasArr[i].name, aliasArr[i].cmdLine);
+        if (strcmp(argv[0], aliasList[i].name) == 0) {
+            printf("AliasNode match: %s -> %s\n", aliasList[i].name, aliasList[i].cmdLine);
 
             // Create a copy of the alias command line to tokenize
-            char *aliasCmdLine = strdup(aliasArr[i].cmdLine);
+            char *aliasCmdLine = strdup(aliasList[i].cmdLine);
             if (!aliasCmdLine) {
                 perror("Failed to duplicate alias command line");
                 return -1;
@@ -697,7 +697,7 @@ void processes(char *argv[], int *numOfCmd) {
 }
 
 int main() {
-    aliasArr =(Alias *)malloc(MAX_ALIASES * sizeof(Alias));
+    aliasList =(AliasNode *)malloc(MAX_ALIASES * sizeof(AliasNode));
     char *cmd = (char *) malloc(MAX_CMD_LEN * sizeof(char));
     int numOfCmd = 0;
     int activeAliases = 0;
@@ -709,33 +709,33 @@ int main() {
         perror("Error: Memory Allocation failed");
         return 1;
     }
-    if(aliasArr==NULL){
+    if(aliasList==NULL){
         perror("Eroor: Memory ALlocation failed");
         free(cmd);
         return 1;
     }
     for (int i=0;i<MAX_ALIASES;i++){
-        aliasArr[i].name = (char *)malloc(MAX_CMD_LEN * sizeof(char));
-        if (aliasArr[i].name == NULL) {
-            fprintf(stderr, "Memory allocation failed for aliasArr[%d].name\n", i);
+        aliasList[i].name = (char *)malloc(MAX_CMD_LEN * sizeof(char));
+        if (aliasList[i].name == NULL) {
+            fprintf(stderr, "Memory allocation failed for aliasList[%d].name\n", i);
             // Free previously allocated memory before exiting
             for (int j = 0; j < i; j++) {
-                free(aliasArr[j].name);
+                free(aliasList[j].name);
             }
-            free(aliasArr);
+            free(aliasList);
             free(cmd);
             return 1;
         }
-        aliasArr[i].cmdLine=(char*) malloc (MAX_CMD_LEN*sizeof(char));
-        if(aliasArr[i].cmdLine==NULL){
-            fprintf(stderr, "Memory allocation failed for aliasArr[%d].cmdLine\n", i);
+        aliasList[i].cmdLine=(char*) malloc (MAX_CMD_LEN*sizeof(char));
+        if(aliasList[i].cmdLine==NULL){
+            fprintf(stderr, "Memory allocation failed for aliasList[%d].cmdLine\n", i);
             // Free previously allocated memory before exiting
-            free(aliasArr[i].name);
+            free(aliasList[i].name);
             for (int j = 0; j < i; j++) {
-                free(aliasArr[j].name);
-                free(aliasArr[j].cmdLine);
+                free(aliasList[j].name);
+                free(aliasList[j].cmdLine);
             }
-            free(aliasArr);
+            free(aliasList);
             free(cmd);
             return 1;
         }
@@ -757,10 +757,10 @@ int main() {
     }
 
     for (int i = 0; i < MAX_ALIASES; i++) {
-        free(aliasArr[i].name);
-        free(aliasArr[i].cmdLine);
+        free(aliasList[i].name);
+        free(aliasList[i].cmdLine);
     }
-    free(aliasArr);
+    free(aliasList);
     free(cmd);
 
     return 0;

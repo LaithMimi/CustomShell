@@ -13,9 +13,10 @@
 typedef struct {
     char *name;
     char *cmdLine;
-} Alias;
+    struct AliasNode *next;
+} AliasNode;
 
-Alias *aliasArr=NULL;
+AliasNode *aliasList=NULL;
 int aliasCount = 0;
 
 void displayPrompt(int numOfCmd, int activeAliases, int scriptLines);
@@ -39,12 +40,6 @@ int main(){
         return 1;
     }
 
-    aliasArr=(Alias*)malloc(MaxAliases * sizeof(Alias));
-    if (aliasArr==NULL) {
-        perror("Error: Memory Allocation for aliasArr failed");
-        free(cmd);
-        return 1;
-    }
 
     while (1) {
         displayPrompt(numOfCmd,activeAliases,scriptLines);
@@ -52,7 +47,6 @@ int main(){
         if (fgets(cmd,MaxCmdLen,stdin)==NULL){
             perror("Err");
             free(cmd);
-            free(aliasArr);
             return 1;
         }
 
@@ -65,11 +59,14 @@ int main(){
     }
 
     free(cmd);
-    for (int i = 0; i < aliasCount; i++) {
-        free(aliasArr[i].name);
-        free(aliasArr[i].cmdLine);
+    AliasNode *current = aliasList;
+    while (current != NULL) {
+        AliasNode *next = (AliasNode *) current->next;
+        free(current->name);
+        free(current->cmdLine);
+        free(current);
+        current = next;
     }
-    free(aliasArr);
     return 0;
 }
 
@@ -88,50 +85,50 @@ int pairsOfQuotes(const char *cmd, char ch) {
     return count/2;
 }
 void deleteAlias(char *name) {
-    bool found = false;
-    for (int i = 0; i < aliasCount; i++) {
-        if (found) {
-            aliasArr[i - 1] = aliasArr[i];
-        } else if (strcmp(aliasArr[i].name, name) == 0) {
-            free(aliasArr[i].name);
-            free(aliasArr[i].cmdLine);
-            found = true;
-        }
+    AliasNode *current = aliasList;
+    AliasNode *previous = NULL;
+
+    while (current != NULL && strcmp(current->name, name) != 0) {
+        previous = current;
+        current = (AliasNode *) current->next;
     }
 
-    if (found) {
-        aliasCount--;
-        // Use a temporary pointer for realloc
-        Alias *temp = realloc(aliasArr, aliasCount * sizeof(Alias));
-        if (temp == NULL && aliasCount > 0) {
-            perror("Failed to resize alias array");
-            // In case of failure, keep the original buffer and exit
-            exit(EXIT_FAILURE);
-        }
-        aliasArr = temp;
-    } else {
+    if (current == NULL) {
         fprintf(stderr, "Alias doesn't exist\n");
+        return;
     }
-}
-void defAlias(char *name, char *cmd) {
-    if (aliasCount < MaxAliases) {
-        aliasArr[aliasCount].name = malloc(strlen(name) + 1);
-        strcpy(aliasArr[aliasCount].name, name);
 
-        aliasArr[aliasCount].cmdLine = malloc(strlen(cmd) + 1);
-        strcpy(aliasArr[aliasCount].cmdLine, cmd);
-
-        aliasCount++;
+    if (previous == NULL) {
+        aliasList = (AliasNode *) current->next;
     } else {
-        perror("Err");
+        previous->next = current->next;
+    }
+
+    free(current->name);
+    free(current->cmdLine);
+    free(current);
+}
+
+void defAlias(char *name, char *cmd) {
+    AliasNode *newNode = (AliasNode *)malloc(sizeof(AliasNode));
+    if (newNode == NULL) {
+        perror("Failed to allocate memory for new alias");
+        exit(EXIT_FAILURE);
+    }
+    newNode->name = strdup(name); // strdup allocates and copies the string
+    newNode->cmdLine = strdup(cmd);
+    newNode->next = (struct AliasNode *) aliasList;
+    aliasList = newNode;
+}
+
+void printAliases() {
+    AliasNode *current = aliasList;
+    while (current != NULL) {
+        printf("alias %s='%s'\n", current->name, current->cmdLine);
+        current = (AliasNode *) current->next;
     }
 }
-void printAliases(){
-    printf("Current aliases:\n");
-    for (int i = 0; i < aliasCount; i++) {
-        printf("alias %s='%s'\n", aliasArr[i].name, aliasArr[i].cmdLine);
-    }
-}
+
 void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount) {
     char *delim = "=";
     char *token = strtok(cmd, delim);
@@ -153,9 +150,9 @@ void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount) {
 
 int executeWithAliases(char** argv) {
     for (int i = 0; i < aliasCount; i++) {
-        if (strcmp(argv[0], aliasArr[i].name) == 0) {
+        if (strcmp(argv[0], aliasList[i].name) == 0) {
             // Found the alias, replace the command
-            char *aliasedCommand = aliasArr[i].cmdLine;
+            char *aliasedCommand = aliasList[i].cmdLine;
 
             // Tokenize the aliased command
             char *token;
@@ -187,6 +184,7 @@ void processes(char **argv, int *numOfCmd) {
         exit(EXIT_FAILURE);
     }
     else if (PID == 0) { // Child process
+
         if (executeWithAliases(argv) == 0) {
             execvp(argv[0], argv);
 
@@ -198,6 +196,7 @@ void processes(char **argv, int *numOfCmd) {
         }
     }
     else { // Parent process
+
         usleep(100000);
         int status;
         wait(&status); // Wait for the child process to complete
@@ -224,7 +223,10 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
     if (strlen(cmd) > 0 && cmd[(strlen(cmd)) - 1] == '\n') {
         cmd[strlen(cmd) - 1] = '\0'; // Remove trailing newline character
     }
-
+    if (strlen(cmd) > MaxCmdLen) {
+        perror("Illegal Command: Too Many Characters\n");
+        return;
+    }
     char *delim = " =";
     char *token = strtok(cmd, delim);
     char **argv = (char **) malloc((MaxArg + 1) * sizeof(char *));
@@ -249,7 +251,8 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
             }
             strcpy(cmd,command);
         }
-        //printf("%s",command);
+//        printf("%s\n",command);
+//        printf("%s\n",cmd);
 
         parseAlias(cmd,argv,activeAliases,argCount);
     }
@@ -279,14 +282,7 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
         }
         argv[argCount] = NULL;
     }
-
-    if (argCount == 0) return;
-
-    if (strlen(cmd) > MaxCmdLen) {
-        perror("Illegal Command: Too Many Characters\n");
-        return;
-    }
     executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
-
     free(argv);
+
 }
