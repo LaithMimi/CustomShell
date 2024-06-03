@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <stdbool.h>
 
 #define MaxCmdLen 1024
 #define MaxArg 5
@@ -18,6 +19,7 @@ typedef struct {
 AliasNode *aliasList=NULL;
 int aliasCount = 0;
 
+bool searchForExit(char* argv[]);
 void displayPrompt(int numOfCmd, int activeAliases, int scriptLines);
 int pairsOfQuotes(char *token, char ch);
 void deleteAlias(char *name);
@@ -68,7 +70,21 @@ int main(){
     return 0;
 }
 
-
+bool searchForExit(char* argv[]) {
+    AliasNode *current = aliasList;
+    while (current != NULL) {
+        if (strcmp(argv[0], current->name) == 0) {
+            if (strcmp(current->cmdLine, "exit_shell") == 0) {
+                return true;
+            } else {
+                // Replace the command with the alias command
+                strcpy(argv[0], current->cmdLine);
+            }
+        }
+        current = (AliasNode *) current->next;
+    }
+    return false;
+}
 void displayPrompt(int numOfCmd, int activeAliases, int scriptLines){
     printf("#cmd:%d|#alias:%d|#script lines:%d>", numOfCmd, activeAliases, scriptLines);
 }
@@ -154,13 +170,14 @@ int executeWithAliases(char** argv) {
     for (int i = 0; i < aliasCount; i++) {
         if (strcmp(argv[0], aliasList[i].name) == 0) {
             // Found the alias, replace the command
-            char *aliasedCmd = aliasList[i].cmdLine;
+            char *aliasedCommand = aliasList[i].cmdLine;
 
+            // Tokenize the aliased command
             char *token;
-            char *newArgv[MaxArg];
+            char *newArgv[MaxArg ];
             int newArgCount = 0;
 
-            token = strtok(aliasedCmd, " ");
+            token = strtok(aliasedCommand, " ");
             while (token != NULL && newArgCount < MaxArg) {
                 newArgv[newArgCount++] = token;
                 token = strtok(NULL, " ");
@@ -170,15 +187,14 @@ int executeWithAliases(char** argv) {
             // Execute the aliased command
             execvp(newArgv[0], newArgv);
 
-            perror("Err");
+            perror("Error executing aliased command");
             return -1;
 
         }
     }
-    // Check if the command (or its alias) is exit_shell
-    if (strcmp(argv[0], "exit_shell") == 0) {
-        return 1;  // Indicate that the shell should exit
-    }
+
+
+    // No alias found, return 0 to indicate normal execution should proceed
     return 0;
 }
 void processes(char **argv, int *numOfCmd) {
@@ -273,7 +289,7 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
             deleteAlias(argv[1]);
             *activeAliases = aliasCount;
         } else {
-            perror("Err\n");
+            perror("Err");
         }
     }else {
         while (token != NULL) {
@@ -297,7 +313,10 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
         free(argv);
         return;
     }
-
+    if(searchForExit(argv)){
+        strcpy(cmd,"exit_shell");
+        return;
+    }
     executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
     free(argv);
 
