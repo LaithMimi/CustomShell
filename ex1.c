@@ -192,9 +192,6 @@ int executeAliases(char** argv) {
 
         }
     }
-
-
-    // No alias found, return 0 to indicate normal execution should proceed
     return 0;
 }
 void processes(char **argv, int *numOfCmd) {
@@ -274,9 +271,6 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
             }
             strcpy(cmd,command);
         }
-//        printf("%s\n",command);
-//        printf("%s\n",cmd);
-
         parseAlias(cmd,argv,activeAliases,argCount);
     }
     else if(token != NULL && strcmp(token, "unalias") == 0) {
@@ -288,16 +282,19 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
         if (argCount == 2) {
             removeAlias(argv[1]);
             *activeAliases = aliasCount;
-        } else {
+        }
+        else {
             perror("Err");
         }
-    }else {
+    }
+    else {
         while (token != NULL) {
             if (argCount <= MaxArg) {
                 argv[argCount] = token;
                 // if(strcmp(token,"alias")!=0)
                 argCount++;
-            } else {
+            }
+            else {
                 perror("Too many arguments\n");
                 break;
             }
@@ -323,7 +320,6 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
 }
 
 void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, int *activeAliases) {
-
     FILE *fp = fopen(fileName, "r");
     if (fp == NULL) {
         perror("Error opening file");
@@ -331,18 +327,16 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
     }
 
     char line[MaxCmdLen];
-    char ch = '"'; // The character to count pairs of quotes
-    int quotesNum = 0; // Initialize the count of quotes
+    char ch = '"';
+    int quotesNum = 0;
 
     while (fgets(line, sizeof(line), fp)) {
         // Remove trailing newline character if any
         if (strlen(line) > 0 && line[strlen(line) - 1] == '\n') {
             line[strlen(line) - 1] = '\0';
         }
-        // Execute the command in the script file
         handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
         (*scriptLines)++;
     }
-
     fclose(fp);
 }
