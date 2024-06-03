@@ -21,14 +21,14 @@ int aliasCount = 0;
 
 bool searchForExit(char* argv[]);
 void displayPrompt(int numOfCmd, int activeAliases, int scriptLines);
-int pairsOfQuotes(char *token, char ch);
-void deleteAlias(char *name);
+int  pairsOfQuotes(char *token, char ch);
+void removeAlias(char *name);
 void defAlias(char *name, char *cmd);
-int executeWithAliases(char* argv[]);
+int  executeAliases(char* argv[]);
 void processes(char *argv[], int *numOfCmd);
 void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount);
-void executeBuiltInCommands(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines);
-void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines,int *quotesNum,char ch);
+void checkArgv(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines);
+void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, int *quotesNum, char ch);
 void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, int *activeAliases);
 
 int main(){
@@ -55,7 +55,7 @@ int main(){
             return 1;
         }
 
-        handleCommand(cmd, &numOfCmd, &activeAliases, &scriptLines,&quotesNum, ch);
+        handleCmd(cmd, &numOfCmd, &activeAliases, &scriptLines, &quotesNum, ch);
     }
 
     free(cmd);
@@ -99,7 +99,7 @@ int pairsOfQuotes(char *token, char ch) {
 
     return count/2;
 }
-void deleteAlias(char *name) {
+void removeAlias(char *name) {
     AliasNode *current = aliasList;
     AliasNode *previous = NULL;
 
@@ -166,7 +166,7 @@ void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount) {
     }
 }
 
-int executeWithAliases(char** argv) {
+int executeAliases(char** argv) {
     for (int i = 0; i < aliasCount; i++) {
         if (strcmp(argv[0], aliasList[i].name) == 0) {
             // Found the alias, replace the command
@@ -205,7 +205,7 @@ void processes(char **argv, int *numOfCmd) {
     }
     else if (PID == 0) { // Child process
 
-        if (executeWithAliases(argv) == 0) {
+        if (executeAliases(argv) == 0) {
             execvp(argv[0], argv);
 
             perror("Error executing command");
@@ -226,7 +226,7 @@ void processes(char **argv, int *numOfCmd) {
         }
     }
 }
-void executeBuiltInCommands(char **argv, int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
+void checkArgv(char **argv, int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
     if (strcmp(argv[0], "exit_shell") == 0) {
         return;
     }
@@ -241,7 +241,7 @@ void executeBuiltInCommands(char **argv, int argCount, int *activeAliases, int *
         processes(argv, numOfCmd);
     }
 }
-void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines,int *quotesNum,char ch) {
+void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, int *quotesNum, char ch) {
     //first I should remove the \n
     if (strlen(cmd) > 0 && cmd[(strlen(cmd)) - 1] == '\n') {
         cmd[strlen(cmd) - 1] = '\0'; // Remove trailing newline character
@@ -286,7 +286,7 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
         }
         argv[argCount] = NULL;
         if (argCount == 2) {
-            deleteAlias(argv[1]);
+            removeAlias(argv[1]);
             *activeAliases = aliasCount;
         } else {
             perror("Err");
@@ -317,7 +317,7 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
         strcpy(cmd,"exit_shell");
         return;
     }
-    executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
+    checkArgv(argv, argCount, activeAliases, numOfCmd, scriptLines);
     free(argv);
 
 }
@@ -340,7 +340,7 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
             line[strlen(line) - 1] = '\0';
         }
         // Execute the command in the script file
-        handleCommand(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
+        handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
         (*scriptLines)++;
     }
 

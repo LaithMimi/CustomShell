@@ -242,7 +242,7 @@ void handleCommand(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLine
     executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
 }
 
-void executeBuiltInCommands(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
+void checkArgv(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
     if (strcmp(argv[0], "alias") == 0) {
         if (argCount == 3) {
             defAlias(argv[1], argv[2]);
@@ -256,7 +256,7 @@ void executeBuiltInCommands(char *argv[], int argCount, int *activeAliases, int 
         }
     }
     else if (strcmp(argv[0], "unalias") == 0) {
-        deleteAlias(argv[1]);
+        removeAlias(argv[1]);
         *activeAliases = aliasCount;
     }
     else if (strcmp(argv[0], "source") == 0) {
@@ -278,7 +278,7 @@ void processes(char *argv[], int *numOfCmd) {
         perror("Error: fork failed");
         exit(EXIT_FAILURE);
     } else if (PID == 0) { // Child process
-        if (executeWithAliases(argv) == -1) {
+        if (executeAliases(argv) == -1) {
             execvp(argv[0], argv);
             perror("Error executing command\n");
             exit(EXIT_FAILURE);
@@ -314,7 +314,7 @@ int main() {
             continue;
         }
 
-        handleCommand(cmd, &numOfCmd, &activeAliases, &scriptLines, &result, ch);
+        handleCmd(cmd, &numOfCmd, &activeAliases, &scriptLines, &result, ch);
 
         if (strcmp(cmd, "exit_shell") == 0) {
             printf("The number of quotes is: %d\n", result);
@@ -641,7 +641,7 @@ void handleCommand(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLine
     executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
 }
 
-void executeBuiltInCommands(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
+void checkArgv(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
     if (strcmp(argv[0], "alias") == 0) {
         for(int i=0;i<MAX_ALIASES;i++){
             printf("%s",argv[i]);
@@ -658,7 +658,7 @@ void executeBuiltInCommands(char *argv[], int argCount, int *activeAliases, int 
         }
     }
     else if (strcmp(argv[0], "unalias") == 0) {
-        deleteAlias(argv[1]);
+        removeAlias(argv[1]);
         *activeAliases = aliasCount;
     }
     else if (strcmp(argv[0], "source") == 0) {
@@ -680,7 +680,7 @@ void processes(char *argv[], int *numOfCmd) {
         perror("Error: fork failed");
         exit(EXIT_FAILURE);
     } else if (PID == 0) { // Child process
-        if (executeWithAliases(argv) == -1) {
+        if (executeAliases(argv) == -1) {
             execvp(argv[0], argv);
             perror("Err");
             exit(EXIT_FAILURE);
@@ -748,7 +748,7 @@ int main() {
             continue;
         }
 
-        handleCommand(cmd, &numOfCmd, &activeAliases, &scriptLines, &result, ch);
+        handleCmd(cmd, &numOfCmd, &activeAliases, &scriptLines, &result, ch);
 
         if (strcmp(cmd, "exit_shell") == 0) {
             printf("The number of quotes is: %d\n", result);
