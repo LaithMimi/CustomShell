@@ -297,10 +297,6 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
         free(argv);
         return;
     }
-    AliasNode *current = aliasList;
-    if(strcmp(argv[1],"exit_shell")==0){
-        strcpy(argv[0],"exit_shell");
-    }
 
     executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
     free(argv);
