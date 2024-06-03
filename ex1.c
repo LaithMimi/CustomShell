@@ -102,7 +102,7 @@ void deleteAlias(char *name) {
     } else {
         previous->next = current->next;
     }
-
+    aliasCount--;
     free(current->name);
     free(current->cmdLine);
     free(current);
@@ -154,14 +154,13 @@ int executeWithAliases(char** argv) {
     for (int i = 0; i < aliasCount; i++) {
         if (strcmp(argv[0], aliasList[i].name) == 0) {
             // Found the alias, replace the command
-            char *aliasedCommand = aliasList[i].cmdLine;
+            char *aliasedCmd = aliasList[i].cmdLine;
 
-            // Tokenize the aliased command
             char *token;
-            char *newArgv[MaxArg ];
+            char *newArgv[MaxArg];
             int newArgCount = 0;
 
-            token = strtok(aliasedCommand, " ");
+            token = strtok(aliasedCmd, " ");
             while (token != NULL && newArgCount < MaxArg) {
                 newArgv[newArgCount++] = token;
                 token = strtok(NULL, " ");
@@ -171,12 +170,15 @@ int executeWithAliases(char** argv) {
             // Execute the aliased command
             execvp(newArgv[0], newArgv);
 
-            perror("Error executing aliased command");
+            perror("Err");
             return -1;
 
         }
     }
-    // No alias found, return 0 to indicate normal execution should proceed
+    // Check if the command (or its alias) is exit_shell
+    if (strcmp(argv[0], "exit_shell") == 0) {
+        return 1;  // Indicate that the shell should exit
+    }
     return 0;
 }
 void processes(char **argv, int *numOfCmd) {
@@ -190,7 +192,7 @@ void processes(char **argv, int *numOfCmd) {
         if (executeWithAliases(argv) == 0) {
             execvp(argv[0], argv);
 
-            perror("Error executing command\n");
+            perror("Error executing command");
             exit(EXIT_FAILURE);
         }
         else{
@@ -288,14 +290,16 @@ void handleCommand(char *cmd,int *numOfCmd, int *activeAliases, int *scriptLines
         }
 
         argv[argCount] = NULL;
-//        for(int i=0;i<=argCount;i++){
-//            printf("\t%s: ",argv[i]);
-//        }
+
     }
 
     if (argCount == 0) {
         free(argv);
         return;
+    }
+    AliasNode *current = aliasList;
+    if(strcmp(argv[1],"exit_shell")==0){
+        strcpy(argv[0],"exit_shell");
     }
 
     executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
@@ -327,4 +331,3 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
 
     fclose(fp);
 }
-
