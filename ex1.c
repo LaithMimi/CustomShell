@@ -26,6 +26,7 @@ void removeAlias(char *name);
 void defAlias(char *name, char *cmd);
 int  executeAliases(char* argv[]);
 void processes(char *argv[], int *numOfCmd);
+void cd(char *path);
 void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount);
 void checkArgv(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines);
 void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, int *quotesNum, char ch);
@@ -40,8 +41,6 @@ int main(){
         perror("Error: Memory Allocation failed");
         return 1;
     }
-
-
     while (1) {
         if (strcmp(cmd, "exit_shell") == 0) {
             printf("The number of quotes is: %d\n", quotesNum);
@@ -96,7 +95,6 @@ int pairsOfQuotes(char *token, char ch) {
         }
         token++;
     }
-
     return count/2;
 }
 void removeAlias(char *name) {
@@ -112,7 +110,6 @@ void removeAlias(char *name) {
         fprintf(stderr, "Alias doesn't exist\n");
         return;
     }
-
     if (previous == NULL) {
         aliasList = (AliasNode *) current->next;
     } else {
@@ -125,12 +122,22 @@ void removeAlias(char *name) {
 }
 
 void defAlias(char *name, char *cmd) {
+    AliasNode *current = aliasList;
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0) {
+            fprintf(stderr, "This command already exists\n");
+            return;
+        }
+        current = (AliasNode *) current->next;
+    }
+
     AliasNode *newNode = (AliasNode *)malloc(sizeof(AliasNode));
     if (newNode == NULL) {
         perror("Failed to allocate memory for new alias");
         exit(EXIT_FAILURE);
     }
-    newNode->name = strdup(name); // strdup allocates and copies the string
+    //strdup allocates and copies the string
+    newNode->name = strdup(name);
     newNode->cmdLine = strdup(cmd);
     newNode->next = (struct AliasNode *) aliasList;
     aliasList = newNode;
@@ -194,6 +201,16 @@ int executeAliases(char** argv) {
     }
     return 0;
 }
+void cd(char *path) {
+    if (path == NULL) {
+        perror("cd: expected argument to \"cd\"\n");
+        return;
+    }
+
+    if (chdir(path) != 0) {
+        perror("cd");
+    }
+}
 void processes(char **argv, int *numOfCmd) {
     pid_t PID = fork();
     if (PID == -1) {
@@ -214,7 +231,7 @@ void processes(char **argv, int *numOfCmd) {
     }
     else { // Parent process
 
-        usleep(200000);
+        usleep(100000);
         int status;
         wait(&status); // Wait for the child process to complete
 
@@ -224,8 +241,12 @@ void processes(char **argv, int *numOfCmd) {
     }
 }
 void checkArgv(char **argv, int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
-    if (strcmp(argv[0], "exit_shell") == 0) {
-        return;
+    if (strcmp(argv[0], "cd") == 0) {
+        if (argCount == 2) {
+            cd(argv[1]);
+        } else {
+            perror("Usage: cd <directory>\n");
+        }
     }
     else if (strcmp(argv[0], "source") == 0) {
         if (argCount == 2) {
@@ -234,7 +255,11 @@ void checkArgv(char **argv, int argCount, int *activeAliases, int *numOfCmd, int
         else {
             perror("Usage: source <script_file>\n");
         }
-    }else {
+    }
+    else if (strcmp(argv[0], "exit_shell") == 0) {
+        return;
+    }
+    else {
         processes(argv, numOfCmd);
     }
 }
@@ -311,9 +336,10 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
         return;
     }
     if(searchForExit(argv)){
-        strcpy(cmd,"exit_shell");
-        return;
+        printf("The number of quotes is: %d\n", *quotesNum);
+        exit(0);
     }
+
     checkArgv(argv, argCount, activeAliases, numOfCmd, scriptLines);
     free(argv);
 
