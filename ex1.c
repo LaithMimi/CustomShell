@@ -247,14 +247,14 @@ void checkFunctions(char **argv, int argCount, int *activeAliases, int *numOfCmd
         }
     }
     else if (strcmp(argv[0], "source") == 0) {
-        if (argCount == 2) {
-            if(strcmp(argv[1]+ strlen(argv[1]-3),".sh")!=0){
+        if (argCount < 2) {
+            fprintf(stderr, "source: too few arguments\n");
+        } else {
+            if (strlen(argv[1]) < 3 || strcmp(argv[1] + strlen(argv[1]) - 3, ".sh") != 0) {
                 printf("ERR: the file doesn't end with .sh\n");
+            } else {
+                executeScriptFile(argv[1], numOfCmd, scriptLines, activeAliases);
             }
-            executeScriptFile(argv[1], numOfCmd, scriptLines, activeAliases);
-        }
-        else {
-            perror("Usage: source <script_file>\n");
         }
     }
     else if (strcmp(argv[0], "exit_shell") == 0) {
@@ -354,18 +354,41 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
     char ch = '"';
     int quotesNum = 0;
 
-    while (fgets(line, sizeof(line), fp)!=NULL) {
+    // Read the first line to check for #!/bin/bash
+    if (fgets(line, sizeof(line), fp)) {
         // Remove trailing newline character if any
         if (strlen(line) > 0 && line[strlen(line) - 1] == '\n') {
             line[strlen(line) - 1] = '\0';
         }
-        if(strcmp(line,"#!/bin/bash")!=0){
+
+        if (strcmp(line, "#!/bin/bash") != 0) {
             printf("ERR: No #!/bin/bash\n");
-            continue;
+            fclose(fp);
+            return;
         }
+
+        // Process the first line as a command
+        handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
+        (*scriptLines)++;
+
+    }
+    else {
+        printf("Error reading first line of script file\n");
+        fclose(fp);
+        return;
+    }
+
+    // Process remaining lines
+    while (fgets(line, sizeof(line), fp)) {
+        // Remove trailing newline character if any
+        if (strlen(line) > 0 && line[strlen(line) - 1] == '\n') {
+            line[strlen(line) - 1] = '\0';
+        }
+
         handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
         (*scriptLines)++;
     }
+
     if (ferror(fp)) {
         perror("Error reading file");
     }
