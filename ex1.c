@@ -10,7 +10,7 @@
 #define MaxArg 5
 
 
-typedef struct {
+typedef struct AliasNode{
     char *name;
     char *cmdLine;
     struct AliasNode *next;
@@ -48,7 +48,6 @@ int main(){
             break;
         }
         displayPrompt(numOfCmd,activeAliases,scriptLines);
-
         if (fgets(cmd,MaxCmdLen,stdin)==NULL){
             perror("Err");
             free(cmd);
@@ -102,24 +101,22 @@ void removeAlias(char *name) {
     AliasNode *current = aliasList;
     AliasNode *previous = NULL;
 
-    while (current != NULL && strcmp(current->name, name) != 0) {
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0) {
+            if (previous == NULL) {
+                aliasList = current->next;
+            } else {
+                previous->next = current->next;
+            }
+            free(current->name);
+            free(current->cmdLine);
+            free(current);
+            aliasCount--;
+            return;
+        }
         previous = current;
-        current = (AliasNode *) current->next;
+        current = current->next;
     }
-
-    if (current == NULL) {
-        fprintf(stderr, "Alias doesn't exist\n");
-        return;
-    }
-    if (previous == NULL) {
-        aliasList = (AliasNode *) current->next;
-    } else {
-        previous->next = current->next;
-    }
-    aliasCount--;
-    free(current->name);
-    free(current->cmdLine);
-    free(current);
 }
 
 void defAlias(char *name, char *cmd) {
@@ -143,7 +140,6 @@ void defAlias(char *name, char *cmd) {
     newNode->next = (struct AliasNode *) aliasList;
     aliasList = newNode;
     aliasCount++;
-
 }
 
 void printAliases() {
@@ -203,9 +199,12 @@ int executeAliases(char** argv) {
     return 0;
 }
 void cd(char *path) {
-    if (path == NULL) {
-        perror("cd: expected argument to \"cd\"\n");
-        return;
+    if (path == NULL || strcmp(path, "") == 0) {
+        path = getenv("home");
+        if (path == NULL) {
+            perror("cd: home environment variable not set\n");
+            return;
+        }
     }
 
     if (chdir(path) != 0) {
@@ -249,6 +248,9 @@ void checkFunctions(char **argv, int argCount, int *activeAliases, int *numOfCmd
     }
     else if (strcmp(argv[0], "source") == 0) {
         if (argCount == 2) {
+            if(strcmp(argv[1]+ strlen(argv[1]-3),".sh")!=0){
+                printf("ERR: the file doesn't end with .sh\n");
+            }
             executeScriptFile(argv[1], numOfCmd, scriptLines, activeAliases);
         }
         else {
@@ -306,6 +308,7 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
         if (argCount == 2) {
             removeAlias(argv[1]);
             *activeAliases = aliasCount;
+            return;
         }
         else {
             perror("Err");
@@ -339,9 +342,7 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
 
     checkFunctions(argv, argCount, activeAliases, numOfCmd, scriptLines);
     free(argv);
-
 }
-
 void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, int *activeAliases) {
     FILE *fp = fopen(fileName, "r");
     if (fp == NULL) {
@@ -353,10 +354,14 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
     char ch = '"';
     int quotesNum = 0;
 
-    while (fgets(line, sizeof(line), fp)) {
+    while (fgets(line, sizeof(line), fp)!=NULL) {
         // Remove trailing newline character if any
         if (strlen(line) > 0 && line[strlen(line) - 1] == '\n') {
             line[strlen(line) - 1] = '\0';
+        }
+        if(strcmp(line,"#!/bin/bash")!=0){
+            printf("ERR: No #!/bin/bash\n");
+            continue;
         }
         handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
         (*scriptLines)++;
