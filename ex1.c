@@ -8,10 +8,7 @@
 
 #define MaxCmdLen 1024
 #define MaxArg 5
-static int numOfCmd=0;
-static int activeAliases=0;
-static int scriptLines=0;
-static int quotesNum=0;
+static int numOfCmd=0,activeAliases=0,scriptLines=0,quotesNum=0;
 
 typedef struct AliasNode{
     char *name;
@@ -123,12 +120,15 @@ void removeAlias(char *name) {
 
 void defAlias(char *name, char *cmd) {
     AliasNode *current = aliasList;
-    while (current != NULL) {
+
+    while (current != NULL) {// Check for existing alias
         if (strcmp(current->name, name) == 0) {
-            fprintf(stderr, "This command already exists\n");
-            return;
+            // Found existing alias, override
+            free(current->cmdLine); // Free memory of old command
+            current->cmdLine = strdup(cmd); // Assign new command
+            return; // No need to create a new node
         }
-        current = (AliasNode *) current->next;
+        current = current->next;
     }
 
     AliasNode *newNode = (AliasNode *)malloc(sizeof(AliasNode));
@@ -223,6 +223,7 @@ void processes(char **argv) {
         if (executeAliases(argv) == 0) {
             execvp(argv[0], argv);
             perror("ERR");
+            usleep(100000);
             exit(EXIT_FAILURE);
         }
         else{
@@ -230,7 +231,6 @@ void processes(char **argv) {
         }
     }
     else { // Parent process
-        usleep(100000);
         int status;
         wait(&status); // Wait for the child process to complete
 
@@ -250,10 +250,13 @@ void checkFunctions(char **argv, int argCount) {
      if (strcmp(argv[0], "source") == 0) {
         if (argCount < 2) {
             fprintf(stderr, "source: too few arguments\n");
+            usleep(100000);
         } else {
             if (strlen(argv[1]) < 3 || strcmp(argv[1] + strlen(argv[1]) - 3, ".sh") != 0) {
                 perror("ERR: the file doesn't end with .sh\n");
+                usleep(100000);
             } else {
+                numOfCmd++;
                 executeScriptFile(argv[1]);
             }
         }

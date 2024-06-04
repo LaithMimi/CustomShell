@@ -4,5 +4,4 @@ project(Ex1 C)
 set(CMAKE_C_STANDARD 11)
 
 add_executable(Ex1 ex1.c
-        e1.c
 )
