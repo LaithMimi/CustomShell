@@ -172,7 +172,7 @@ void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount) {
 
 int executeAliases(char** argv) {
     for (int i = 0; i < aliasCount; i++) {
-        if (strcmp(argv[0], aliasList[i].name) == 0) {
+        if (strcmp(argv[0], aliasList[i].cmdLine) == 0) {
             // Found the alias, replace the command
             char *aliasedCommand = aliasList[i].cmdLine;
 
