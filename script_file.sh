@@ -1,19 +1,8 @@
 #!/bin/bash
-
-echo "Hello programmer"
-echo This is a test script.
-
-alias greet='echo "Hi"'
-alias ll='ls -l'
-alias end='exit_shell'
-alias today='date'
-
-great
-ll
-today
-
+echo "Hello Programmer!"
+#this is a comment
+alias greet='echo Hi'
+greet
+hi
 pwd
-
-ls
-
-end
+exit_shell

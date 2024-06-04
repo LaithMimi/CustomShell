@@ -8,7 +8,10 @@
 
 #define MaxCmdLen 1024
 #define MaxArg 5
-
+static int numOfCmd=0;
+static int activeAliases=0;
+static int scriptLines=0;
+static int quotesNum=0;
 
 typedef struct AliasNode{
     char *name;
@@ -20,22 +23,21 @@ AliasNode *aliasList=NULL;
 int aliasCount = 0;
 
 bool searchForExit(char* argv[]);
-void displayPrompt(int numOfCmd, int activeAliases, int scriptLines);
+void displayPrompt();
 void printAliases();
 int  pairsOfQuotes(char *token, char ch);
 void removeAlias(char *name);
 void defAlias(char *name, char *cmd);
 int  executeAliases(char* argv[]);
-void processes(char *argv[], int *numOfCmd);
-void cd(char *path);
-void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount);
-void checkFunctions(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines);
-void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, int *quotesNum, char ch);
-void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, int *activeAliases);
+void processes(char *argv[]);
+//void cd(char *path);
+void parseAlias(char *cmd, char **argv,int argCount);
+void checkFunctions(char *argv[], int argCount);
+void handleCmd(char *cmd, char ch);
+void executeScriptFile(const char *fileName);
 
 int main(){
     char *cmd=(char*)malloc(MaxCmdLen*sizeof(char));
-    int numOfCmd=0,activeAliases=0,scriptLines=0,quotesNum=0;
     char ch ='"';
 
     if(cmd==NULL){
@@ -47,14 +49,14 @@ int main(){
             printf("The number of quotes is: %d\n", quotesNum);
             break;
         }
-        displayPrompt(numOfCmd,activeAliases,scriptLines);
+        displayPrompt();
         if (fgets(cmd,MaxCmdLen,stdin)==NULL){
-            perror("Err");
+            perror("ERR");
             free(cmd);
             return 1;
         }
 
-        handleCmd(cmd, &numOfCmd, &activeAliases, &scriptLines, &quotesNum, ch);
+        handleCmd(cmd, ch);
     }
 
     free(cmd);
@@ -84,7 +86,7 @@ bool searchForExit(char* argv[]) {
     }
     return false;
 }
-void displayPrompt(int numOfCmd, int activeAliases, int scriptLines){
+void displayPrompt(){
     printf("#cmd:%d|#alias:%d|#script lines:%d>", numOfCmd, activeAliases, scriptLines);
 }
 int pairsOfQuotes(char *token, char ch) {
@@ -131,7 +133,7 @@ void defAlias(char *name, char *cmd) {
 
     AliasNode *newNode = (AliasNode *)malloc(sizeof(AliasNode));
     if (newNode == NULL) {
-        perror("Failed to allocate memory for new alias");
+        perror("ERR");
         exit(EXIT_FAILURE);
     }
     //strdup allocates and copies the string
@@ -151,7 +153,7 @@ void printAliases() {
     }
 }
 
-void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount) {
+void parseAlias(char *cmd, char **argv,int argCount) {
     char *delim = "=";
     char *token = strtok(cmd, delim);
     while (token != NULL) {
@@ -164,9 +166,9 @@ void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount) {
         printAliases();
     }else if (argCount == 2) {
         defAlias(argv[0], argv[1]);
-        *activeAliases = aliasCount;
+        activeAliases = aliasCount;
     } else {
-        perror("Usage: alias name 'command'\n");
+        perror("ERR");
     }
 }
 
@@ -191,37 +193,36 @@ int executeAliases(char** argv) {
             // Execute the aliased command
             execvp(newArgv[0], newArgv);
 
-            perror("Error executing aliased command");
+            perror("ERR");
             return -1;
 
         }
     }
     return 0;
 }
-void cd(char *path) {
-    if (path == NULL || strcmp(path, "") == 0) {
-        path = getenv("home");
-        if (path == NULL) {
-            perror("cd: home environment variable not set\n");
-            return;
-        }
-    }
-
-    if (chdir(path) != 0) {
-        perror("cd");
-    }
-}
-void processes(char **argv, int *numOfCmd) {
+//void cd(char *path) {
+//    if (path == NULL || strcmp(path, "") == 0) {
+//        path = getenv("home");
+//        if (path == NULL) {
+//            perror("cd: home environment variable not set\n");
+//            return;
+//        }
+//    }
+//
+//    if (chdir(path) != 0) {
+//        perror("cd");
+//    }
+//}
+void processes(char **argv) {
     pid_t PID = fork();
     if (PID == -1) {
-        perror("Error: fork failed");
+        perror("ERR");
         exit(EXIT_FAILURE);
     }
     else if (PID == 0) { // Child process
         if (executeAliases(argv) == 0) {
             execvp(argv[0], argv);
-
-            perror("Error executing command");
+            perror("ERR");
             exit(EXIT_FAILURE);
         }
         else{
@@ -234,43 +235,43 @@ void processes(char **argv, int *numOfCmd) {
         wait(&status); // Wait for the child process to complete
 
         if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-            (*numOfCmd)++; // Increment only if the command executed successfully
+            (numOfCmd)++; // Increment only if the command executed successfully
         }
     }
 }
-void checkFunctions(char **argv, int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
-    if (strcmp(argv[0], "cd") == 0) {
-        if (argCount == 2) {
-            cd(argv[1]);
-        } else {
-            perror("Usage: cd <directory>\n");
-        }
-    }
-    else if (strcmp(argv[0], "source") == 0) {
+void checkFunctions(char **argv, int argCount) {
+//    if (strcmp(argv[0], "cd") == 0) {
+//        if (argCount == 2) {
+//            cd(argv[1]);
+//        } else {
+//            perror("Usage: cd <directory>\n");
+//        }
+//    }
+     if (strcmp(argv[0], "source") == 0) {
         if (argCount < 2) {
             fprintf(stderr, "source: too few arguments\n");
         } else {
             if (strlen(argv[1]) < 3 || strcmp(argv[1] + strlen(argv[1]) - 3, ".sh") != 0) {
-                printf("ERR: the file doesn't end with .sh\n");
+                perror("ERR: the file doesn't end with .sh\n");
             } else {
-                executeScriptFile(argv[1], numOfCmd, scriptLines, activeAliases);
+                executeScriptFile(argv[1]);
             }
         }
     }
-    else if (strcmp(argv[0], "exit_shell") == 0) {
+     else if (strcmp(argv[0], "exit_shell") == 0) {
         return;
     }
-    else {
-        processes(argv, numOfCmd);
+     else {
+        processes(argv);
     }
 }
-void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, int *quotesNum, char ch) {
+void handleCmd(char *cmd, char ch) {
     //first I should remove the \n
     if (strlen(cmd) > 0 && cmd[(strlen(cmd)) - 1] == '\n') {
         cmd[strlen(cmd) - 1] = '\0'; // Remove trailing newline character
     }
     if (strlen(cmd) > MaxCmdLen) {
-        perror("Illegal Command: Too Many Characters\n");
+        perror("ERR");
         return;
     }
 
@@ -279,13 +280,14 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
     char **argv = (char **) malloc((MaxArg + 1) * sizeof(char *));
 
     if (argv == NULL) {
-        perror("Err");
+        perror("ERR");
         return;
     }
 
     int argCount = 0;
 
     if (token != NULL && strcmp(token, "alias") == 0) {
+        (numOfCmd)++;
         // Remove single quotes from the command
         char *command = strtok(NULL, "");
         if (command != NULL) {
@@ -297,7 +299,7 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
             }
             strcpy(cmd,command);
         }
-        parseAlias(cmd,argv,activeAliases,argCount);
+        parseAlias(cmd,argv,argCount);
     }
     else if(token != NULL && strcmp(token, "unalias") == 0) {
         while (token != NULL) {
@@ -307,11 +309,12 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
         argv[argCount] = NULL;
         if (argCount == 2) {
             removeAlias(argv[1]);
-            *activeAliases = aliasCount;
+            activeAliases = aliasCount;
+            (numOfCmd)++;
             return;
         }
         else {
-            perror("Err");
+            perror("ERR");
         }
     }
     else {
@@ -321,10 +324,10 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
                 argCount++;
             }
             else {
-                perror("Too many arguments\n");
+                perror("ERR");
                 break;
             }
-            *quotesNum += pairsOfQuotes(token, ch);
+            quotesNum += pairsOfQuotes(token, ch);
             token = strtok(NULL, delim);
         }
 
@@ -336,23 +339,22 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
         return;
     }
     if(searchForExit(argv)){
-        printf("The number of quotes is: %d\n", *quotesNum);
+        printf("The number of quotes is: %d\n", quotesNum);
         exit(0);
     }
 
-    checkFunctions(argv, argCount, activeAliases, numOfCmd, scriptLines);
+    checkFunctions(argv, argCount);
     free(argv);
 }
-void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, int *activeAliases) {
+void executeScriptFile(const char *fileName) {
     FILE *fp = fopen(fileName, "r");
     if (fp == NULL) {
-        perror("Error opening file");
+        perror("ERR");
         return;
     }
 
     char line[MaxCmdLen];
     char ch = '"';
-    int quotesNum = 0;
 
     // Read the first line to check for #!/bin/bash
     if (fgets(line, sizeof(line), fp)) {
@@ -362,14 +364,13 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
         }
 
         if (strcmp(line, "#!/bin/bash") != 0) {
-            printf("ERR: No #!/bin/bash\n");
+            perror("ERR: No #!/bin/bash\n");
             fclose(fp);
             return;
         }
 
-        // Process the first line as a command
-        handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
-        (*scriptLines)++;
+//        handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
+        (scriptLines)++;
 
     }
     else {
@@ -379,18 +380,19 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
     }
 
     // Process remaining lines
-    while (fgets(line, sizeof(line), fp)) {
+    while (fgets(line, sizeof(line), fp)!=NULL||!feof(fp)){
         // Remove trailing newline character if any
         if (strlen(line) > 0 && line[strlen(line) - 1] == '\n') {
             line[strlen(line) - 1] = '\0';
         }
-
-        handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
-        (*scriptLines)++;
+        if (line[0] != '#') {
+            handleCmd(line,ch);
+        }
+        (scriptLines)++;
     }
 
     if (ferror(fp)) {
-        perror("Error reading file");
+        perror("ERR");
     }
 
     fclose(fp);
