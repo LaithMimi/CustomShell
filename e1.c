@@ -242,7 +242,7 @@ void handleCommand(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLine
     executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
 }
 
-void checkArgv(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
+void checkFunctions(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
     if (strcmp(argv[0], "alias") == 0) {
         if (argCount == 3) {
             defAlias(argv[1], argv[2]);
@@ -641,7 +641,7 @@ void handleCommand(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLine
     executeBuiltInCommands(argv, argCount, activeAliases, numOfCmd, scriptLines);
 }
 
-void checkArgv(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
+void checkFunctions(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
     if (strcmp(argv[0], "alias") == 0) {
         for(int i=0;i<MAX_ALIASES;i++){
             printf("%s",argv[i]);

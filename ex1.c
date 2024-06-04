@@ -21,6 +21,7 @@ int aliasCount = 0;
 
 bool searchForExit(char* argv[]);
 void displayPrompt(int numOfCmd, int activeAliases, int scriptLines);
+void printAliases();
 int  pairsOfQuotes(char *token, char ch);
 void removeAlias(char *name);
 void defAlias(char *name, char *cmd);
@@ -28,7 +29,7 @@ int  executeAliases(char* argv[]);
 void processes(char *argv[], int *numOfCmd);
 void cd(char *path);
 void parseAlias(char *cmd, char **argv,int *activeAliases,int argCount);
-void checkArgv(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines);
+void checkFunctions(char *argv[], int argCount, int *activeAliases, int *numOfCmd, int *scriptLines);
 void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, int *quotesNum, char ch);
 void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, int *activeAliases);
 
@@ -218,7 +219,6 @@ void processes(char **argv, int *numOfCmd) {
         exit(EXIT_FAILURE);
     }
     else if (PID == 0) { // Child process
-
         if (executeAliases(argv) == 0) {
             execvp(argv[0], argv);
 
@@ -230,7 +230,6 @@ void processes(char **argv, int *numOfCmd) {
         }
     }
     else { // Parent process
-
         usleep(100000);
         int status;
         wait(&status); // Wait for the child process to complete
@@ -240,7 +239,7 @@ void processes(char **argv, int *numOfCmd) {
         }
     }
 }
-void checkArgv(char **argv, int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
+void checkFunctions(char **argv, int argCount, int *activeAliases, int *numOfCmd, int *scriptLines) {
     if (strcmp(argv[0], "cd") == 0) {
         if (argCount == 2) {
             cd(argv[1]);
@@ -316,7 +315,6 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
         while (token != NULL) {
             if (argCount <= MaxArg) {
                 argv[argCount] = token;
-                // if(strcmp(token,"alias")!=0)
                 argCount++;
             }
             else {
@@ -328,7 +326,6 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
         }
 
         argv[argCount] = NULL;
-
     }
 
     if (argCount == 0) {
@@ -340,7 +337,7 @@ void handleCmd(char *cmd, int *numOfCmd, int *activeAliases, int *scriptLines, i
         exit(0);
     }
 
-    checkArgv(argv, argCount, activeAliases, numOfCmd, scriptLines);
+    checkFunctions(argv, argCount, activeAliases, numOfCmd, scriptLines);
     free(argv);
 
 }
@@ -364,5 +361,9 @@ void executeScriptFile(const char *fileName, int *numOfCmd, int *scriptLines, in
         handleCmd(line, numOfCmd, activeAliases, scriptLines, &quotesNum, ch);
         (*scriptLines)++;
     }
+    if (ferror(fp)) {
+        perror("Error reading file");
+    }
+
     fclose(fp);
 }
