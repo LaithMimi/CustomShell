@@ -1,4 +1,4 @@
-/*#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -32,6 +32,7 @@ void parseAlias(char *cmd, char **argv,int argCount);
 void checkFunctions(char *argv[], int argCount);
 void handleCmd(char *cmd, char ch);
 void executeScriptFile(const char *fileName);
+void andOperator(char *cmd);
 
 int main(){
     char *cmd=(char*)malloc(MaxCmdLen*sizeof(char));
@@ -200,7 +201,7 @@ int executeAliases(char** argv) {
     }
     return 0;
 }
-//void cd(char *path) {
+/*void cd(char *path) {
 //    if (path == NULL || strcmp(path, "") == 0) {
 //        path = getenv("home");
 //        if (path == NULL) {
@@ -212,7 +213,7 @@ int executeAliases(char** argv) {
 //    if (chdir(path) != 0) {
 //        perror("cd");
 //    }
-//}
+//}*/
 void processes(char **argv) {
     pid_t PID = fork();
     if (PID == -1) {
@@ -240,13 +241,13 @@ void processes(char **argv) {
     }
 }
 void checkFunctions(char **argv, int argCount) {
-//    if (strcmp(argv[0], "cd") == 0) {
+/*    if (strcmp(argv[0], "cd") == 0) {
 //        if (argCount == 2) {
 //            cd(argv[1]);
 //        } else {
 //            perror("Usage: cd <directory>\n");
 //        }
-//    }
+//    }*/
      if (strcmp(argv[0], "source") == 0) {
         if (argCount < 2) {
             fprintf(stderr, "source: too few arguments\n");
@@ -268,6 +269,26 @@ void checkFunctions(char **argv, int argCount) {
         processes(argv);
     }
 }
+void andOperator(char *cmd) {
+    char *delim = "&&";
+    char *token;
+    char *commands[MaxArg + 1];
+    int cmdCount = 0;
+
+    token = strtok(cmd, delim);
+    while (token != NULL) {
+        commands[cmdCount] = token;
+        cmdCount++;
+        token = strtok(NULL, delim);
+        if (cmdCount > 3) {
+            perror("ERR");
+            exit(EXIT_FAILURE);
+        }
+    }
+    for (int i = 0; i < cmdCount; i++) {
+        handleCmd(commands[i], '"');
+    }
+}
 void handleCmd(char *cmd, char ch) {
     //first I should remove the \n
     if (strlen(cmd) > 0 && cmd[(strlen(cmd)) - 1] == '\n') {
@@ -275,6 +296,11 @@ void handleCmd(char *cmd, char ch) {
     }
     if (strlen(cmd) > MaxCmdLen) {
         perror("ERR");
+        return;
+    }
+
+    if (strstr(cmd, "&&")) {
+        andOperator(cmd);
         return;
     }
 
@@ -349,6 +375,7 @@ void handleCmd(char *cmd, char ch) {
     checkFunctions(argv, argCount);
     free(argv);
 }
+
 void executeScriptFile(const char *fileName) {
     FILE *fp = fopen(fileName, "r");
     if (fp == NULL) {
@@ -399,4 +426,4 @@ void executeScriptFile(const char *fileName) {
     }
 
     fclose(fp);
-}*/
+}
