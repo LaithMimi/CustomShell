@@ -310,10 +310,9 @@ void orOperator(char *cmd) {
             exit(EXIT_FAILURE);
         }
     }
-    for (int i = 0; i < cmdCount && ErrorFlag !=1 ; i++) {
+    for (int i = 0; i < cmdCount ; i++) {
         handleCmd(commands[i],'"');
     }
-    ErrorFlag=0;
 }
 
 void handleCmd(char *cmd, char ch) {
@@ -386,7 +385,6 @@ void handleCmd(char *cmd, char ch) {
             message++;
         }
         (numOfCmd)++;
-        // Print the message
         printf("%s\n", message);
     }
     else {
