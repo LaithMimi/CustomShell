@@ -315,6 +315,7 @@ void orOperator(char *cmd) {
     }
     ErrorFlag=0;
 }
+
 void handleCmd(char *cmd, char ch) {
     //first I should remove the \n
     if (strlen(cmd) > 0 && cmd[(strlen(cmd)) - 1] == '\n') {
@@ -375,6 +376,18 @@ void handleCmd(char *cmd, char ch) {
         else {
             perror("ERR");
         }
+    }else if (token != NULL && strcmp(token, "echo") == 0) {
+        char *message = cmd + 5;
+
+        // Check if the message is enclosed in quotes
+        if (message[0] == '"' && message[strlen(message) - 1] == '"') {
+            // Remove the quotes
+            message[strlen(message) - 1] = '\0';
+            message++;
+        }
+        (numOfCmd)++;
+        // Print the message
+        printf("%s\n", message);
     }
     else {
         while (token != NULL) {
@@ -401,7 +414,6 @@ void handleCmd(char *cmd, char ch) {
         printf("The number of quotes is: %d\n", quotesNum);
         exit(0);
     }
-
     checkFunctions(argv, argCount);
     free(argv);
 }
