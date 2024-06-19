@@ -8,7 +8,8 @@
 
 #define MaxCmdLen 1024
 #define MaxArg 5
-static int numOfCmd=0,activeAliases=0,scriptLines=0,quotesNum=0,ErrorFlag = 0;
+static int numOfCmd=0,activeAliases=0,scriptLines=0,quotesNum=0,ErrorFlag =0,
+            background=0, counter=1;
 
 typedef struct AliasNode{
     char *name;
@@ -232,15 +233,20 @@ void processes(char **argv) {
         }
     }
     else { // Parent process
-        int status;
-        wait(&status); // Wait for the child process to complete
+        usleep(100000);
+        if(!background) {
+            int status;
+            wait(&status); // Wait for the child process to complete
 
-        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-            (numOfCmd)++; // Increment only if the command executed successfully
-            ErrorFlag = 0; // Indicate success
-        }
-        else {
-            ErrorFlag = 1; // Indicate error
+            if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+                (numOfCmd)++; // Increment only if the command executed successfully
+                ErrorFlag = 0; // Indicate success
+            } else {
+                ErrorFlag = 1; // Indicate error
+            }
+
+        }else{
+            printf("[%d] %d\n", counter++, PID);
         }
     }
 }
@@ -273,27 +279,6 @@ void checkFunctions(char **argv, int argCount) {
         processes(argv);
     }
 }
-void andOperator(char *cmd) {
-    char *delim = "&&";
-    char *token;
-    char *commands[MaxArg + 1];
-    int cmdCount = 0;
-
-    token = strtok(cmd, delim);
-    while (token != NULL) {
-        commands[cmdCount] = token;
-        cmdCount++;
-        token = strtok(NULL, delim);
-        if (cmdCount > 3) {
-            perror("ERR");
-            exit(EXIT_FAILURE);
-        }
-    }
-    for (int i = 0; i < cmdCount && ErrorFlag !=1 ; i++) {
-        handleCmd(commands[i],'"');
-    }
-    ErrorFlag=0;
-}
 void orOperator(char *cmd) {
     char *delim = "||";
     char *token;
@@ -310,10 +295,46 @@ void orOperator(char *cmd) {
             exit(EXIT_FAILURE);
         }
     }
+    ErrorFlag=0;
     for (int i = 0; i < cmdCount ; i++) {
         handleCmd(commands[i],'"');
     }
 }
+
+void andOperator(char *cmd) {
+    char *delim = "&&";
+    char *token;
+    char *commands[MaxArg + 1];
+    int cmdCount = 0;
+
+    token = strtok(cmd, delim);
+    while (token != NULL) {
+        commands[cmdCount] = token;
+        cmdCount++;
+        token = strtok(NULL, delim);
+        if (cmdCount > 3) {
+            perror("ERR");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    for (int i = 0; i < cmdCount && ErrorFlag != 1; i++) {
+        handleCmd(commands[i], '"');
+    }
+    ErrorFlag = 0;
+
+    if (strstr(commands[1], "||")) {
+        cmdCount = 0;
+        token = strtok(commands[1], "||");
+        while (token != NULL) {
+            commands[cmdCount] = token;
+            cmdCount++;
+            token = strtok(NULL, delim);
+        }
+        orOperator(commands[1]);
+    }
+}
+
 
 void handleCmd(char *cmd, char ch) {
     //first I should remove the \n
@@ -333,7 +354,10 @@ void handleCmd(char *cmd, char ch) {
         orOperator(cmd);
         return;
     }
-
+    if (cmd[strlen(cmd) - 1] == '&') {
+        background = 1;
+        cmd[strlen(cmd) - 1] = '\0';  // Remove the '&' character
+    }
     char *delim = " =";
     char *token = strtok(cmd, delim);
     char **argv = (char **) malloc((MaxArg + 1) * sizeof(char *));
