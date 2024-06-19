@@ -157,8 +157,8 @@ void processOperators(char *cmd) {
     for (int i = 0; i < cmdCount; i++) {
         if (!strstr(commands[i], "&&")) { // Command without '&&'
             handleCmd(commands[i], '"');
-//
-        } else { // Command with '&&'
+        }
+        else { // Command with '&&'
             char *tmpToken;
             char *tmpCommands[MaxArg + 1];
             int tmpCmdCount = 0;
@@ -172,15 +172,15 @@ void processOperators(char *cmd) {
             for (int j = 0; j < tmpCmdCount; j++) {
                 handleCmd(tmpCommands[j], '"');
                 if (ErrorFlag) {
-                    break; // Stop processing further commands in this group
+                    break;
                 }
             }
 
-            if (!ErrorFlag) { // If all commands in this group succeeded
-                break; // Stop processing further '||' groups
+            if (!ErrorFlag) {
+                break;
             }
         }
-        ErrorFlag = 0; // Reset the error flag for the next group of commands
+        ErrorFlag = 0;
     }
 }
 
