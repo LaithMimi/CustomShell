@@ -1,3 +1,4 @@
+/*
 //#include <stdio.h>
 //#include <stdlib.h>
 //#include <string.h>
@@ -29,14 +30,12 @@
 //void removeAlias(char *name);
 //void defAlias(char *name, char *cmd);
 //int  executeAliases(char* argv[]);
-//void sigchld_handler(int sig);
 //void cmdExecution(char *argv[]);
 ////void cd(char *path);
 //void parseAlias(char *cmd, char **argv,int argCount);
 //void checkFunctions(char *argv[], int argCount);
 //void handleCmd(char *cmd, char ch);
 //void executeScriptFile(const char *fileName);
-//void andOperator(char *cmd);
 //
 //int main(){
 //    char *cmd=(char*)malloc(MaxCmdLen*sizeof(char));
@@ -45,17 +44,6 @@
 //    if(cmd==NULL){
 //        perror("Error: Memory Allocation failed");
 //        return 1;
-//    }
-//
-//    //Set up the SIGCHLD handler
-//
-//    struct sigaction sa;
-//    sa.sa_handler = &sigchld_handler;
-//    sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-//    sigemptyset(&sa.sa_mask);
-//    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-//        perror("sigaction");
-//        exit(EXIT_FAILURE);
 //    }
 //
 //    while (1) {
@@ -230,12 +218,7 @@
 // *  By handling this signal, we can keep track of background processes and reset variables accordingly.
 // *
 // * */
-//void sigchld_handler(int sig) {
-//    // Wait for all child cmdExecution that have terminated
-//    while (waitpid(-1, NULL, WNOHANG) > 0) {
-//        jobsCounter--;
-//    }
-//}
+//
 //void cmdExecution(char **argv) {
 //    pid_t PID = fork();
 //    if (PID == -1) {
@@ -275,13 +258,6 @@
 //    }
 //}
 //void checkFunctions(char **argv, int argCount) {
-///*    if (strcmp(argv[0], "cd") == 0) {
-////        if (argCount == 2) {
-////            cd(argv[1]);
-////        } else {
-////            perror("Usage: cd <directory>\n");
-////        }
-////    }*/
 //     if (strcmp(argv[0], "source") == 0) {
 //        if (argCount < 2) {
 //            fprintf(stderr, "source: too few arguments\n");
@@ -512,4 +488,420 @@
 //    }
 //
 //    fclose(fp);
-//}
+//}*/
+/*#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <signal.h>
+
+#define MaxCmdLen 1024
+#define MaxArg 5
+
+static int numOfCmd=0, activeAliases=0, scriptLines=0, quotesNum=0, ErrorFlag=0, background=0;
+volatile int jobsCounter=0;
+
+typedef struct AliasNode {
+    char *name;
+    char *cmdLine;
+    struct AliasNode *next;
+} AliasNode;
+
+typedef struct {
+    char cmd[MaxCmdLen];
+} Job;
+
+AliasNode *aliasList=NULL;
+int aliasCount=0;
+Job jobList[10];
+
+void displayPrompt();
+void handleCmd(char *cmd, char ch);
+int pairsOfQuotes(char *token, char ch);
+void cmdExecution(char **argv, char *errFile);
+void processOperators(char *cmd);
+void handle_background(char *cmd);
+void displayJobs();
+void printAliases();
+void removeAlias(char *name);
+void defAlias(char *name, char *cmd);
+void parseAlias(char *cmd, char **argv, int argCount);
+int executeAliases(char **argv);
+bool searchForExit(char* argv[]);
+void checkFunctions(char *argv[], int argCount);
+void executeScriptFile(const char *fileName);
+
+int main() {
+    char *cmd = (char*)malloc(MaxCmdLen * sizeof(char));
+    char ch = '"';
+
+    if (cmd == NULL) {
+        perror("Error: Memory Allocation failed");
+        return 1;
+    }
+
+    while (1) {
+        displayPrompt();
+        if (fgets(cmd, MaxCmdLen, stdin) == NULL) {
+            perror("ERR");
+            free(cmd);
+            return 1;
+        }
+        if (strcmp(cmd, "exit_shell\n") == 0) {
+            printf("The number of quotes is: %d\n", quotesNum);
+            break;
+        }
+        if (strcmp(cmd, "jobs\n") == 0) {
+            displayJobs();
+            continue;
+        }
+        handleCmd(cmd, ch);
+    }
+
+    free(cmd);
+    AliasNode *current = aliasList;
+    while (current != NULL) {
+        AliasNode *next = (AliasNode *)current->next;
+        free(current->name);
+        free(current->cmdLine);
+        free(current);
+        current = next;
+    }
+    return 0;
+}
+
+void displayPrompt() {
+    printf("#cmd:%d|#alias:%d|#script lines:%d>", numOfCmd, activeAliases, scriptLines);
+}
+
+void handleCmd(char *cmd, char ch) {
+    if (strlen(cmd) > 0 && cmd[strlen(cmd) - 1] == '\n') {
+        cmd[strlen(cmd) - 1] = '\0';
+    }
+    if (strlen(cmd) > MaxCmdLen) {
+        perror("ERR");
+        return;
+    }
+    if (strstr(cmd, "&&") || strstr(cmd, "||")) {
+        processOperators(cmd);
+        return;
+    }
+    if (strstr(cmd, "&")) {
+        handle_background(cmd);
+        return;
+    }
+
+    char *delim = " =";
+    char *token = strtok(cmd, delim);
+    char **argv = (char **)malloc((MaxArg + 1) * sizeof(char *));
+    if (argv == NULL) {
+        perror("ERR");
+        return;
+    }
+    char *errorFile = NULL;
+
+    int argCount = 0;
+    while (token != NULL) {
+        if (strcmp(token, "2>") == 0) {
+            token = strtok(NULL, delim);
+            if (token != NULL) {
+                errorFile = token;
+            }
+            break;
+        }
+        if (argCount <= MaxArg) {
+            argv[argCount] = token;
+            argCount++;
+        } else {
+            perror("ERR");
+            break;
+        }
+        quotesNum += pairsOfQuotes(token, ch);
+        token = strtok(NULL, delim);
+    }
+    argv[argCount] = NULL;
+
+    if (argCount == 0) {
+        free(argv);
+        return;
+    }
+    if (searchForExit(argv)) {
+        free(argv);
+        return;
+    }
+    checkFunctions(argv, argCount);
+    free(argv);
+}
+
+int pairsOfQuotes(char *token, char ch) {
+    int count = 0;
+    while (*token) {
+        if (*token == ch) {
+            count++;
+        }
+        token++;
+    }
+    return count / 2;
+}
+
+void processOperators(char *cmd) {
+    char *token;
+    char *commands[MaxArg + 1];
+    int cmdCount = 0;
+
+    token = strtok(cmd, "||");
+    while (token != NULL) {
+        commands[cmdCount++] = token;
+        token = strtok(NULL, "||");
+        if (cmdCount > MaxArg) {
+            perror("ERR");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    for (int i = 0; i < cmdCount; i++) {
+        if (!strstr(commands[i], "&&")) {
+            handleCmd(commands[i], '"');
+        } else {
+            char *tmpToken;
+            char *tmpCommands[MaxArg + 1];
+            int tmpCmdCount = 0;
+
+            tmpToken = strtok(commands[i], "&&");
+            while (tmpToken != NULL) {
+                tmpCommands[tmpCmdCount++] = tmpToken;
+                tmpToken = strtok(NULL, "&&");
+            }
+
+            for (int j = 0; j < tmpCmdCount; j++) {
+                handleCmd(tmpCommands[j], '"');
+                if (ErrorFlag) {
+                    break;
+                }
+            }
+
+            if (ErrorFlag) {
+                break;
+            }
+        }
+        ErrorFlag = 0;
+    }
+}
+
+void cmdExecution(char **argv, char *errFile) {
+    pid_t PID = fork();
+    if (PID == -1) {
+        perror("ERR");
+        exit(EXIT_FAILURE);
+    } else if (PID == 0) {
+        if (errFile != NULL) {
+            int fd = open(errFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd == -1) {
+                perror("ERR");
+                exit(EXIT_FAILURE);
+            }
+            dup2(fd, STDERR_FILENO);
+            close(fd);
+        }
+        if (executeAliases(argv) == 0) {
+            execvp(argv[0], argv);
+            perror("ERR");
+            usleep(100000);
+            exit(EXIT_FAILURE);
+        } else {
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        if (!background) {
+            int status;
+            wait(&status);
+            if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+                numOfCmd++;
+                ErrorFlag = 0;
+            } else {
+                ErrorFlag = 1;
+            }
+        } else {
+            jobsCounter++;
+            printf("[%d] %d\n", jobsCounter, PID);
+        }
+    }
+}
+
+void handle_background(char *cmd) {
+    strcpy(jobList[jobsCounter].cmd, cmd);
+    cmd[strlen(cmd) - 1] = '\0';
+
+    char *delim = " =";
+    char *token = strtok(cmd, delim);
+    char **argv = (char **)malloc((MaxArg + 1) * sizeof(char *));
+
+    if (argv == NULL) {
+        perror("ERR");
+        return;
+    }
+    char *errFile = NULL;
+
+    int argCount = 0;
+    while (token != NULL) {
+        if (strcmp(token, "2>") == 0) {
+            token = strtok(NULL, delim);
+            if (token != NULL)
+                errFile = token;
+            break;
+        }
+        if (argCount <= MaxArg) {
+            argv[argCount] = token;
+            argCount++;
+        } else {
+            perror("ERR");
+            break;
+        }
+        quotesNum += pairsOfQuotes(token, '"');
+        token = strtok(NULL, delim);
+    }
+    argv[argCount] = NULL;
+
+    if (argCount == 0) {
+        free(argv);
+        return;
+    }
+    background = 1;
+    cmdExecution(argv, errFile);
+    background = 0;
+    free(argv);
+}
+
+void displayJobs() {
+    for (int i = 0; i < jobsCounter; i++) {
+        printf("[%d]   Running               %s\n", i + 1, jobList[i].cmd);
+    }
+}
+
+void printAliases() {
+    AliasNode *current = aliasList;
+    printf("Aliases list:\n");
+    while (current != NULL) {
+        printf("alias %s='%s'\n", current->name, current->cmdLine);
+        current = (AliasNode *)current->next;
+    }
+}
+
+void removeAlias(char *name) {
+    AliasNode *current = aliasList;
+    AliasNode *previous = NULL;
+
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0) {
+            if (previous == NULL) {
+                aliasList = current->next;
+            } else {
+                previous->next = current->next;
+            }
+            free(current->name);
+            free(current->cmdLine);
+            free(current);
+            aliasCount--;
+            return;
+        }
+        previous = current;
+        current = (AliasNode *)current->next;
+    }
+}
+
+void defAlias(char *name, char *cmd) {
+    AliasNode *newAlias = (AliasNode *)malloc(sizeof(AliasNode));
+    newAlias->name = strdup(name);
+    newAlias->cmdLine = strdup(cmd);
+    newAlias->next = aliasList;
+    aliasList = newAlias;
+    aliasCount++;
+}
+
+void parseAlias(char *cmd, char **argv, int argCount) {
+    if (argCount == 0) {
+        printAliases();
+        return;
+    } else if (argCount == 1) {
+        removeAlias(argv[0]);
+    } else if (argCount == 2) {
+        defAlias(argv[0], argv[1]);
+    } else {
+        perror("ERR");
+    }
+}
+
+int executeAliases(char **argv) {
+    AliasNode *current = aliasList;
+    while (current != NULL) {
+        if (strcmp(current->name, argv[0]) == 0) {
+            char *aliasCmd = strdup(current->cmdLine);
+            char *token = strtok(aliasCmd, " ");
+            char **aliasArgv = (char **)malloc((MaxArg + 1) * sizeof(char *));
+            if (aliasArgv == NULL) {
+                perror("ERR");
+                free(aliasCmd);
+                return 1;
+            }
+
+            int aliasArgCount = 0;
+            while (token != NULL) {
+                if (aliasArgCount <= MaxArg) {
+                    aliasArgv[aliasArgCount] = token;
+                    aliasArgCount++;
+                } else {
+                    perror("ERR");
+                    break;
+                }
+                token = strtok(NULL, " ");
+            }
+            aliasArgv[aliasArgCount] = NULL;
+
+            int result = execvp(aliasArgv[0], aliasArgv);
+            free(aliasArgv);
+            free(aliasCmd);
+            return result;
+        }
+        current = current->next;
+    }
+    return 0;
+}
+
+bool searchForExit(char* argv[]) {
+    if (strcmp(argv[0], "exit_shell") == 0) {
+        printf("The number of quotes is: %d\n", quotesNum);
+        exit(0);
+    }
+    return false;
+}
+
+void checkFunctions(char *argv[], int argCount) {
+    if (strcmp(argv[0], "alias") == 0) {
+        parseAlias(argv[1], argv + 1, argCount - 1);
+    } else if (strcmp(argv[0], "script") == 0) {
+        executeScriptFile(argv[1]);
+    } else {
+        cmdExecution(argv, NULL);
+    }
+}
+
+void executeScriptFile(const char *fileName) {
+    FILE *file = fopen(fileName, "r");
+    if (file == NULL) {
+        perror("ERR");
+        return;
+    }
+
+    char line[MaxCmdLen];
+    while (fgets(line, sizeof(line), file)) {
+        handleCmd(line, '"');
+        scriptLines++;
+    }
+
+    fclose(file);
+}
+*/

@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+
 
 #define MaxCmdLen 1024
 #define MaxArg 4
@@ -21,10 +23,9 @@ Job jobList[10];
 void displayPrompt();
 void handleCmd(char *cmd, char ch);
 int pairsOfQuotes(char *token, char ch);
-void cmdExecution(char **argv);
+void cmdExecution(char **argv,char *errFile);
 void processOperators(char *cmd);
 void handle_background(char *cmd);
-//void sigchld_handler(int sig);
 void displayJobs();
 
 int main() {
@@ -93,15 +94,24 @@ void handleCmd(char *cmd, char ch) {
     char *delim = " =";
     char *token = strtok(cmd, delim);
     char **argv = (char **)malloc((MaxArg + 1) * sizeof(char *));
-
     if (argv == NULL) {
         perror("ERR");
         return;
     }
+    char *errorFile = NULL;
 
     int argCount = 0;
 
     while (token != NULL) {
+
+        if (strcmp(token, "2>") == 0) {
+            token = strtok(NULL, delim);
+            if (token != NULL) {
+                errorFile = token;
+            }
+            break;
+        }
+
         if (argCount <= MaxArg) {
             argv[argCount] = token;
             argCount++;
@@ -123,7 +133,7 @@ void handleCmd(char *cmd, char ch) {
         free(argv);
         return;
     }
-    cmdExecution(argv);
+    cmdExecution(argv,errorFile);
     free(argv);
 }
 
@@ -176,7 +186,7 @@ void processOperators(char *cmd) {
                 }
             }
 
-            if (!ErrorFlag) {
+            if (ErrorFlag) {
                 break;
             }
         }
@@ -185,17 +195,30 @@ void processOperators(char *cmd) {
 }
 
 
-void cmdExecution(char **argv) {
+void cmdExecution(char **argv,char *errFile) {
     pid_t PID = fork();
     if (PID == -1) {
         perror("ERR");
         exit(EXIT_FAILURE);
     }
     else if (PID == 0) { // Child process
-            execvp(argv[0], argv);
-            perror("ERR");
-            usleep(100000);
-            exit(EXIT_FAILURE);
+        if (errFile != NULL) {
+            int fd;
+            //O_TRUNC is used to truncate the file to a length of zero if it already exists.
+            //O_CREAT This flag is used to create a new file if it does not already exist.
+            //The file permissions are set to rw-r--r-- 0644
+            fd= open(errFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);//open errFile for writing,
+            if (fd == -1) {
+                perror("ERR");
+                exit(EXIT_FAILURE);
+            }
+            dup2(fd, STDERR_FILENO);//redirect stdout to errFile
+            close(fd); //close File descriptor
+        }
+        execvp(argv[0], argv);
+        perror("ERR");
+        usleep(100000);
+        exit(EXIT_FAILURE);
     }
     else { // Parent process
         if(!background) {
@@ -215,22 +238,6 @@ void cmdExecution(char **argv) {
     }
 }
 
-//void sigchld_handler(int sig) {
-//    pid_t pid;
-//    int status;
-//    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-//        usleep(100000);
-//        //printf("Child process %d terminated\n", pid);
-//        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-//            // Increment the number of commands executed successfully
-//            numOfCmd++;
-//        } else {
-//            // Set the error flag if the child process terminated with an error
-//            ErrorFlag = 1;
-//        }
-//    }
-//}
-
 void handle_background(char *cmd) {
     strcpy(jobList[jobsCounter].cmd,cmd);
     // Remove the '&' character from the command
@@ -244,9 +251,16 @@ void handle_background(char *cmd) {
         perror("ERR");
         return;
     }
+    char *errFile=NULL;
 
     int argCount = 0;
     while (token != NULL) {
+        if (strcmp(token,"2>") == 0){
+            token= strtok(NULL,delim);
+            if(token!=NULL)
+                errFile=token;
+            break;
+        }
         if (argCount <= MaxArg) {
             argv[argCount] = token;
             argCount++;
@@ -270,7 +284,7 @@ void handle_background(char *cmd) {
     }
 
     background = 1;
-    cmdExecution(argv);
+    cmdExecution(argv, errFile);
     background = 0; // Reset background flag
     free(argv);
 }
