@@ -252,6 +252,7 @@ void handle_background(char *cmd) {
         return;
     }
 
+    
     char *errFile=NULL;
 
     int argCount = 0;
