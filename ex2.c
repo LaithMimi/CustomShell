@@ -252,7 +252,6 @@ void handle_background(char *cmd) {
         return;
     }
     char *errFile=NULL;
-
     int argCount = 0;
     while (token != NULL) {
         if (strcmp(token,"2>") == 0){
