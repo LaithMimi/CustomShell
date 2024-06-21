@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,7 +5,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-
+#include <signal.h>
+#include <errno.h>
 
 #define MaxCmdLen 1024
 #define MaxArg 4
@@ -16,10 +16,13 @@ static int numOfCmd = 0, quotesNum = 0,ErrorFlag =0,
 
 typedef struct {
     char cmd[MaxCmdLen];
+    pid_t pid;
 } Job;
 
 Job jobList[10];
 
+void sigchldHandler();
+void deleteJob(int index);
 void displayPrompt();
 void handleCmd(char *cmd, char ch);
 int pairsOfQuotes(char *token, char ch);
@@ -34,6 +37,17 @@ int main() {
 
     if (cmd == NULL) {
         perror("Error: Memory Allocation failed");
+        return 1;
+    }
+
+    // Register the SIGCHLD handler
+    struct sigaction childSig;
+    childSig.sa_handler = sigchldHandler;
+    sigemptyset(&childSig.sa_mask);
+    childSig.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    if (sigaction(SIGCHLD, &childSig, NULL) == -1) {
+        perror("ERR");
+        free(cmd);
         return 1;
     }
 
@@ -59,6 +73,41 @@ int main() {
 
     free(cmd);
     return 0;
+}
+
+//this function ensures that terminated background processes are properly reaped,
+//preventing zombie processes
+void sigchldHandler() {
+    int saved_errno = errno;
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
+        // Find the job in jobList
+        for (int i = 0; i < jobsCounter; i++) {
+            if (jobList[i].pid == pid) {
+                // Delete the job from jobList
+                deleteJob(i);
+                break;
+            }
+        }
+    }
+    errno = saved_errno;
+}
+void deleteJob(int index) {//to delete from jobList
+    if (index < 0 || index >= jobsCounter) {
+        fprintf(stderr, "Invalid job index\n");
+        return;
+    }
+
+    // Shift the remaining jobs up to fill the gap
+    for (int i = index; i < jobsCounter - 1; i++) {
+        jobList[i] = jobList[i + 1];
+    }
+
+    // Clear the last job
+    memset(&jobList[jobsCounter - 1], 0, sizeof(Job));
+
+    // Decrease the job counter
+    jobsCounter--;
 }
 
 void displayJobs() {
@@ -224,8 +273,8 @@ void processOperators(char *cmd) {
                 handleCmd(commands[i], '"');
             }
         }
+        ErrorFlag = 0;
     }
-    ErrorFlag = 0;
 }
 
 void cmdExecution(char **argv,char *errFile) {
@@ -249,7 +298,7 @@ void cmdExecution(char **argv,char *errFile) {
             close(fd); //close File descriptor
         }
         execvp(argv[0], argv);
-        perror("ERR");
+        fprintf(stderr, "%s: Command not found.\n",argv[0]);
         usleep(100000);
         exit(EXIT_FAILURE);
     }
@@ -266,6 +315,7 @@ void cmdExecution(char **argv,char *errFile) {
 
         }else{
             jobsCounter++;
+            jobList[jobsCounter].pid=PID;
             printf("[%d] %d\n", jobsCounter, PID);
         }
     }
