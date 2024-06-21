@@ -149,51 +149,84 @@ int pairsOfQuotes(char *token, char ch) {
 }
 
 void processOperators(char *cmd) {
-    char *token;
-    char *commands[MaxArg + 1];
+    char *commands[3];
     int cmdCount = 0;
 
-    // First, tokenize by '||'
+    char *cmds[3];
+    int counter = 0;
+
+    char *start;
+    char *pos;
+
+    char *token;
     token = strtok(cmd, "||");
     while (token != NULL) {
         commands[cmdCount++] = token;
         token = strtok(NULL, "||");
-        if (cmdCount > MaxArg) {
+        if (cmdCount > 3) {
             perror("ERR");
             exit(EXIT_FAILURE);
         }
     }
-
     for (int i = 0; i < cmdCount; i++) {
-        if (!strstr(commands[i], "&&")) { // Command without '&&'
-            handleCmd(commands[i], '"');
-        }
-        else { // Command with '&&'
-            char *tmpToken;
-            char *tmpCommands[MaxArg + 1];
-            int tmpCmdCount = 0;
-
-            tmpToken = strtok(commands[i], "&&");
-            while (tmpToken != NULL) {
-                tmpCommands[tmpCmdCount++] = tmpToken;
-                tmpToken = strtok(NULL, "&&");
-            }
-
-            for (int j = 0; j < tmpCmdCount; j++) {
-                handleCmd(tmpCommands[j], '"');
-                if (ErrorFlag) {
-                    break;
+        if (strstr(commands[i], "&&")) {
+            pos = commands[i];
+            start = commands[i];
+            while (*pos) {
+                if (strncmp(pos, "&&", 2) == 0) {
+                    *pos = '\0';  // Null terminate the current command
+                    cmds[counter] = start;
+                    pos += 2;  // Skip over the "&&"
+                    start = pos;
+                } else {
+                    pos++;
+                }
+                if (counter > 3) {
+                    perror("ERR");
+                    exit(EXIT_FAILURE);
                 }
             }
+            cmds[++counter] = start;
 
-            if (ErrorFlag) {
-                break;
+            for (int j = 0; j <= counter; j++) {
+                char *tmpCmd = cmds[j];
+
+                while (*tmpCmd == ' ') tmpCmd++;
+                char *end = tmpCmd + strlen(tmpCmd) - 1;
+                while (end > tmpCmd && *end == ' ') end--;
+                *(end + 1) = '\0';
+
+                // Check if there's an '&' in the command
+                if (strchr(tmpCmd, '&') != NULL && strchr(tmpCmd, '&') == strrchr(tmpCmd, '&')) {
+                    handle_background(tmpCmd);
+                    if (ErrorFlag) {
+                        break;
+                    }
+                } else {
+                    handleCmd(cmds[j], '"');
+                    if (ErrorFlag) {
+                        break;
+                    }
+                }
             }
         }
-        ErrorFlag = 0;
+        else {
+            char *tmpCmd = commands[i];
+            while (*tmpCmd == ' ') tmpCmd++;
+            char *end = tmpCmd + strlen(tmpCmd) - 1;
+            while (end > tmpCmd && *end == ' ') end--;
+            *(end + 1) = '\0';
+            // Check if there's an '&' in the command
+            if (strchr(tmpCmd, '&') != NULL && strchr(tmpCmd, '&') == strrchr(tmpCmd, '&')) {
+                handle_background(tmpCmd);
+            }
+            else {
+                handleCmd(commands[i], '"');
+            }
+        }
     }
+    ErrorFlag = 0;
 }
-
 
 void cmdExecution(char **argv,char *errFile) {
     pid_t PID = fork();
@@ -287,3 +320,4 @@ void handle_background(char *cmd) {
     background = 0; // Reset background flag
     free(argv);
 }
+
