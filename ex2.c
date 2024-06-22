@@ -5,31 +5,34 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-#include <signal.h>
-#include <errno.h>
 
 #define MaxCmdLen 1024
 #define MaxArg 4
+#define MaxJobs 100
 
 static int numOfCmd = 0, quotesNum = 0,ErrorFlag =0,
         background=0, jobsCounter = 0;
+pid_t pid;
 
 typedef struct {
-    char cmd[MaxCmdLen];
     pid_t pid;
+    char cmd[MaxCmdLen];
+    int active;
 } Job;
 
-Job jobList[10];
+Job jobList[MaxJobs];
 
-void sigchldHandler();
-void deleteJob(int index);
+void checkJobs();
+void displayJobs();
+void deleteJobs();
 void displayPrompt();
 void handleCmd(char *cmd, char ch);
 int pairsOfQuotes(char *token, char ch);
-void cmdExecution(char **argv,char *errFile);
 void processOperators(char *cmd);
+void cmdExecution(char **argv,char *errFile);
+void addJob(char *cmd);
 void handle_background(char *cmd);
-void displayJobs();
+
 
 int main() {
     char *cmd = (char*)malloc(MaxCmdLen * sizeof(char));
@@ -40,18 +43,9 @@ int main() {
         return 1;
     }
 
-    // Register the SIGCHLD handler
-    struct sigaction childSig;
-    childSig.sa_handler = sigchldHandler;
-    sigemptyset(&childSig.sa_mask);
-    childSig.sa_flags = SA_RESTART | SA_NOCLDSTOP;
-    if (sigaction(SIGCHLD, &childSig, NULL) == -1) {
-        perror("ERR");
-        free(cmd);
-        return 1;
-    }
-
     while (1) {
+        checkJobs();
+        deleteJobs();
         displayPrompt();
 
         if (fgets(cmd, MaxCmdLen, stdin) == NULL) {
@@ -61,53 +55,51 @@ int main() {
         }
 
         if (strcmp(cmd, "exit_shell\n") == 0) {
-            printf("The number of quotes is: %d\n", quotesNum);
+            printf("%d\n", quotesNum);
             break;
         }
         if (strcmp(cmd, "jobs\n") == 0) {
             displayJobs();
             continue;
         }
+
         handleCmd(cmd, ch);
+
     }
 
     free(cmd);
     return 0;
 }
 
-//this function ensures that terminated background processes are properly reaped,
-//preventing zombie processes
-void sigchldHandler() {
-    int saved_errno = errno;
-    pid_t pid;
-    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
-        // Find the job in jobList
-        for (int i = 0; i < jobsCounter; i++) {
-            if (jobList[i].pid == pid) {
-                // Delete the job from jobList
-                deleteJob(i);
-                break;
+void deleteJobs(){
+    int counter= 0;
+
+    for (int i = 0; i < jobsCounter; i++) {
+        if (jobList[i].active) {
+            // Move active jobs to the front of the list
+            jobList[counter++] = jobList[i];
+        }
+    }
+    jobsCounter = counter;
+}
+
+void checkJobs() {
+    for (int i = 0; i < jobsCounter; i++) {
+        if (jobList[i].active) {
+            int status;
+            pid_t result = waitpid(jobList[i].pid, &status, WNOHANG);
+
+            if (result == 0) {
+                // Child is still running
+                printf("%s is still running\n",jobList[i].cmd);
+                continue;
+            } else if (result > 0) {
+                // Child has finished
+                printf("%s has ended\n",jobList[i].cmd);
+                jobList[i].active = 0;
             }
         }
     }
-    errno = saved_errno;
-}
-void deleteJob(int index) {//to delete from jobList
-    if (index < 0 || index >= jobsCounter) {
-        fprintf(stderr, "Invalid job index\n");
-        return;
-    }
-
-    // Shift the remaining jobs up to fill the gap
-    for (int i = index; i < jobsCounter - 1; i++) {
-        jobList[i] = jobList[i + 1];
-    }
-
-    // Clear the last job
-    memset(&jobList[jobsCounter - 1], 0, sizeof(Job));
-
-    // Decrease the job counter
-    jobsCounter--;
 }
 
 void displayJobs() {
@@ -135,6 +127,7 @@ void handleCmd(char *cmd, char ch) {
         processOperators(cmd);
         return;
     }
+
     if (strstr(cmd, "&")){
         handle_background(cmd);
         return;
@@ -218,13 +211,13 @@ void processOperators(char *cmd) {
         }
     }
     for (int i = 0; i < cmdCount; i++) {
-        if (strstr(commands[i], "&&")) {
+        if (strstr(commands[i], "&&")) { //ls && sleep 5 && sleep 10&
             pos = commands[i];
             start = commands[i];
             while (*pos) {
                 if (strncmp(pos, "&&", 2) == 0) {
                     *pos = '\0';  // Null terminate the current command
-                    cmds[counter] = start;
+                    cmds[counter++] = start;
                     pos += 2;  // Skip over the "&&"
                     start = pos;
                 } else {
@@ -235,9 +228,9 @@ void processOperators(char *cmd) {
                     exit(EXIT_FAILURE);
                 }
             }
-            cmds[++counter] = start;
-
-            for (int j = 0; j <= counter; j++) {
+            cmds[counter++] = start;
+            //cmdCount=counter;
+            for (int j = 0; j < counter; j++) {
                 char *tmpCmd = cmds[j];
 
                 while (*tmpCmd == ' ') tmpCmd++;
@@ -279,6 +272,15 @@ void processOperators(char *cmd) {
 
 void cmdExecution(char **argv,char *errFile) {
     pid_t PID = fork();
+    pid=PID;
+
+    if (strcmp(argv[0], "sleep") == 0 && argv[1] != NULL) {
+        (numOfCmd)++;
+        int duration = atoi(argv[1]); //to cast from string to integer
+        sleep(duration);
+        return;
+    }
+
     if (PID == -1) {
         perror("ERR");
         exit(EXIT_FAILURE);
@@ -303,7 +305,7 @@ void cmdExecution(char **argv,char *errFile) {
         exit(EXIT_FAILURE);
     }
     else { // Parent process
-        if(!background) {
+        if(background==0) {
             int status;
             wait(&status);
             if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
@@ -314,60 +316,30 @@ void cmdExecution(char **argv,char *errFile) {
             }
 
         }else{
-            jobsCounter++;
-            jobList[jobsCounter].pid=PID;
-            printf("[%d] %d\n", jobsCounter, PID);
+            (numOfCmd)++;
+            printf("[%d] %d\n", jobsCounter , PID);
         }
     }
 }
 
+void addJob(char *cmd) {
+    if (jobsCounter < MaxJobs) {
+        jobList[jobsCounter].pid = pid;
+        strncpy(jobList[jobsCounter].cmd, cmd, MaxCmdLen);
+        jobList[jobsCounter].active = 1;
+        jobsCounter++;
+    } else {
+        fprintf(stderr, "Too many background jobs\n");
+    }
+}
+
 void handle_background(char *cmd) {
-    strcpy(jobList[jobsCounter].cmd,cmd);
+    addJob(cmd);
     // Remove the '&' character from the command
     cmd[strlen(cmd) - 1] = '\0';
-
-    char *delim = " =";
-    char *token = strtok(cmd, delim);
-    char **argv = (char **)malloc((MaxArg + 1) * sizeof(char *));
-
-    if (argv == NULL) {
-        perror("ERR");
-        return;
-    }
-    char *errFile=NULL;
-    int argCount = 0;
-    while (token != NULL) {
-        if (strcmp(token,"2>") == 0){
-            token= strtok(NULL,delim);
-            if(token!=NULL)
-                errFile=token;
-            break;
-        }
-        if (argCount <= MaxArg) {
-            argv[argCount] = token;
-            argCount++;
-        } else {
-            perror("ERR");
-            break;
-        }
-        quotesNum += pairsOfQuotes(token, '"');
-        token = strtok(NULL, delim);
-    }
-    argv[argCount] = NULL;
-
-    if (argCount == 0) {
-        free(argv);
-        return;
-    }
-
-    if (strcmp(argv[0], "exit_shell") == 0) {
-        free(argv);
-        return;
-    }
-
+    char *newCmd =cmd;
     background = 1;
-    cmdExecution(argv, errFile);
+    handleCmd(newCmd,'"');
     background = 0; // Reset background flag
-    free(argv);
 }
 

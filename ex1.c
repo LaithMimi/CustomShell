@@ -1,4 +1,4 @@
-/*
+//
 //#include <stdio.h>
 //#include <stdlib.h>
 //#include <string.h>
@@ -6,7 +6,7 @@
 //#include <sys/types.h>
 //#include <sys/wait.h>
 //#include <stdbool.h>
-//#include <signal.h>
+//
 //
 //#define MaxCmdLen 1024
 //#define MaxArg 5
@@ -397,18 +397,18 @@
 //            perror("ERR");
 //        }
 //    }
-////    if (token != NULL && strcmp(token, "echo") == 0) {
-////        char *message = cmd + 5;
-////
-////        // Check if the message is enclosed in quotes
-////        if (message[0] == '"' && message[strlen(message) - 1] == '"') {
-////            // Remove the quotes
-////            message[strlen(message) - 1] = '\0';
-////            message++;
-////        }
-////        (numOfCmd)++;
-////        printf("%s\n", message);
-////    }
+//    if (token != NULL && strcmp(token, "echo") == 0) {
+//        char *message = cmd + 5;
+//
+//        // Check if the message is enclosed in quotes
+//        if (message[0] == '"' && message[strlen(message) - 1] == '"') {
+//            // Remove the quotes
+//            message[strlen(message) - 1] = '\0';
+//            message++;
+//        }
+//        (numOfCmd)++;
+//        printf("%s\n", message);
+//    }
 //    else {
 //        while (token != NULL) {
 //            if (argCount <= MaxArg) {
@@ -488,4 +488,4 @@
 //    }
 //
 //    fclose(fp);
-//}*/
+//}
