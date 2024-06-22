@@ -29,7 +29,7 @@ void displayPrompt();
 void handleCmd(char *cmd, char ch);
 int pairsOfQuotes(char *token, char ch);
 void processOperators(char *cmd);
-void cmdExecution(char **argv,char *errFile);
+void cmdExecution(char **argv,char *errFile,char *originalCmd);
 void addJob(char *cmd);
 void handle_background(char *cmd);
 
@@ -113,6 +113,8 @@ void displayPrompt() {
 }
 
 void handleCmd(char *cmd, char ch) {
+    char originalCmd[MaxCmdLen];
+    strncpy(originalCmd, cmd, MaxCmdLen);
     //remove trailing newline character
     if (strlen(cmd) > 0 && cmd[strlen(cmd) - 1] == '\n') {
         cmd[strlen(cmd) - 1] = '\0';
@@ -175,7 +177,7 @@ void handleCmd(char *cmd, char ch) {
         free(argv);
         return;
     }
-    cmdExecution(argv,errorFile);
+    cmdExecution(argv,errorFile,originalCmd);
     free(argv);
 }
 
@@ -270,17 +272,15 @@ void processOperators(char *cmd) {
     }
 }
 
-void cmdExecution(char **argv,char *errFile) {
+void cmdExecution(char **argv,char *errFile,char *originalCmd) {
+//    if (strcmp(argv[0], "sleep") == 0 && argv[1] != NULL) {
+//        (numOfCmd)++;
+//        int duration = atoi(argv[1]); //to cast from string to integer
+//        sleep(duration);
+//        return;
+//    }
     pid_t PID = fork();
     pid=PID;
-
-    if (strcmp(argv[0], "sleep") == 0 && argv[1] != NULL) {
-        (numOfCmd)++;
-        int duration = atoi(argv[1]); //to cast from string to integer
-        sleep(duration);
-        return;
-    }
-
     if (PID == -1) {
         perror("ERR");
         exit(EXIT_FAILURE);
@@ -316,6 +316,7 @@ void cmdExecution(char **argv,char *errFile) {
             }
 
         }else{
+            addJob(originalCmd);
             (numOfCmd)++;
             printf("[%d] %d\n", jobsCounter , PID);
         }
@@ -334,7 +335,6 @@ void addJob(char *cmd) {
 }
 
 void handle_background(char *cmd) {
-    addJob(cmd);
     // Remove the '&' character from the command
     cmd[strlen(cmd) - 1] = '\0';
     char *newCmd =cmd;
