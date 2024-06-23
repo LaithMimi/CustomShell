@@ -279,60 +279,7 @@
 //         cmdExecution(argv);
 //    }
 //}
-//void orOperator(char *cmd) {
-//    char *delim = "||";
-//    char *token;
-//    char *commands[MaxArg + 1];
-//    int cmdCount = 0;
 //
-//    token = strtok(cmd, delim);
-//    while (token != NULL) {
-//        commands[cmdCount] = token;
-//        cmdCount++;
-//        token = strtok(NULL, delim);
-//        if (cmdCount > 3) {
-//            perror("ERR");
-//            exit(EXIT_FAILURE);
-//        }
-//    }
-//    ErrorFlag=0;
-//    for (int i = 0; i < cmdCount ; i++) {
-//        handleCmd(commands[i],'"');
-//    }
-//}
-//void andOperator(char *cmd) {
-//    char *delim = "&&";
-//    char *token;
-//    char *commands[MaxArg + 1];
-//    int cmdCount = 0;
-//
-//    token = strtok(cmd, delim);
-//    while (token != NULL) {
-//        commands[cmdCount] = token;
-//        cmdCount++;
-//        token = strtok(NULL, delim);
-//        if (cmdCount > 3) {
-//            perror("ERR");
-//            exit(EXIT_FAILURE);
-//        }
-//    }
-//
-//    for (int i = 0; i < cmdCount && ErrorFlag != 1; i++) {
-//        handleCmd(commands[i], '"');
-//    }
-//    ErrorFlag = 0;
-//
-//    if (strstr(commands[1], "||")) {
-//        cmdCount = 0;
-//        token = strtok(commands[1], "||");
-//        while (token != NULL) {
-//            commands[cmdCount] = token;
-//            cmdCount++;
-//            token = strtok(NULL, delim);
-//        }
-//        orOperator(commands[1]);
-//    }
-//}
 //void handleCmd(char *cmd, char ch) {
 //    //first I should remove the \n
 //    if (strlen(cmd) > 0 && cmd[(strlen(cmd)) - 1] == '\n') {
