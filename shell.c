@@ -59,6 +59,7 @@ int main() {
     }
 
     while (1) {
+
         checkJobs();
         deleteJobs();
         displayPrompt();
