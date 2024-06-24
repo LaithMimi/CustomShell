@@ -6,4 +6,5 @@ set(CMAKE_C_STANDARD 11)
 add_executable(Ex1 ex1.c
         ex2.c
         shell.c
+        Ex3q1.c
 )

@@ -200,18 +200,18 @@
 //    return 0;
 //}
 ///*void cd(char *path) {
-////    if (path == NULL || strcmp(path, "") == 0) {
-////        path = getenv("home");
-////        if (path == NULL) {
-////            perror("cd: home environment variable not set\n");
-////            return;
-////        }
-////    }
-////
-////    if (chdir(path) != 0) {
-////        perror("cd");
-////    }
-////}*/
+//    if (path == NULL || strcmp(path, "") == 0) {
+//        path = getenv("home");
+//        if (path == NULL) {
+//            perror("cd: home environment variable not set\n");
+//            return;
+//        }
+//    }
+//
+//    if (chdir(path) != 0) {
+//        perror("cd");
+//    }
+//}*/
 //
 ///*
 // *  implementing a signal handler for SIGCHLD. This signal is sent to a parent process when a child process terminates.
