@@ -3,200 +3,146 @@
 #include <string.h>
 #include <math.h>
 #include <complex.h>
+#define MAX_SIZE 128
 
-int** create2DArray(int rows, int cols);
-void free2DArray(int** array, int rows);
-int isInteger(double num);
-void checkMatrixType(double complex* matrix, int n);
-void parseInput(char* input, int* rows, int* cols, int** matrix);
-void fill2DArray(int** array, int* matrix, int rows, int cols);
+complex double **inputMatrix(char input[MAX_SIZE], int *rows, int *cols);
+double complex** createMatrix(int rows, int cols);
+void freeMatrix(double complex** matrix, int rows);
 
-// Function to create a dynamically allocated 2D array
-int** create2DArray(int rows, int cols) {
-    int** array = (int**)malloc(rows * sizeof(int*));
-    if (array == NULL) {
-        printf("Memory allocation failed\n");
-        exit(1);
-    }
+double complex** ADDMatrices(double complex** firMatrix, double complex** secMatrix, int rows, int cols);
+complex double **SUBMatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
 
-    for (int i = 0; i < rows; i++) {
-        array[i] = (int*)malloc(cols * sizeof(int));
-        if (array[i] == NULL) {
-            printf("Memory allocation failed\n");
-            exit(1);
-        }
-    }
+complex double **MULMatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
 
-    return array;
-}
-
-// Function to free the dynamically allocated 2D array
-void free2DArray(int** array, int rows) {
-    for (int i = 0; i < rows; i++) {
-        free(array[i]);
-    }
-    free(array);
-}
-
-// Function to check if a double is an integer
-int isInteger(double num) {
-    return fmod(num, 1.0) == 0.0;
-}
-
-// Function to check the type of numbers in a 2D matrix
-void checkMatrixType(double complex* matrix, int n) {
-    int allIntegers = 1;  // Assume all integers initially
-    int hasComplex = 0;   // Flag to indicate if there are complex numbers
-
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            double complex element = matrix[i * n + j];
-
-            if (cimag(element) != 0.0) {
-                hasComplex = 1;
-                allIntegers = 0;
-                break;
-            } else if (!isInteger(creal(element))) {
-                allIntegers = 0;
-            }
-        }
-        if (hasComplex) break;
-    }
-
-    if (hasComplex) {
-        printf("The matrix contains complex numbers.\n");
-    } else if (allIntegers) {
-        printf("The matrix contains only integers.\n");
-    } else {
-        printf("The matrix contains doubles.\n");
-    }
-}
-
-// Function to parse the input string to extract matrix dimensions and elements
-void parseInput(char* input, int* rows, int* cols, int** matrix) {
-    sscanf(input, "(%d,%d:", rows, cols);
-
-    // Allocate memory for the matrix elements
-    *matrix = (int*)malloc((*rows) * (*cols) * sizeof(int));
-    if (*matrix == NULL) {
-        printf("Memory allocation failed\n");
-        exit(1);
-    }
-
-    // Move to the position of the first matrix element in the input string
-    char* matrixElements = strchr(input, ':') + 1;
-
-    // Read matrix elements
-    for (int i = 0; i < (*rows) * (*cols); i++) {
-        sscanf(matrixElements, "%d", (*matrix) + i);
-        // Move to the next element
-        matrixElements = strchr(matrixElements, ',') + 1;
-    }
-}
-
-// Function to fill the dynamically allocated 2D array with matrix elements
-void fill2DArray(int** array, int* matrix, int rows, int cols) {
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            array[i][j] = matrix[i * cols + j];
-        }
-    }
-}
-void printMatrix(int** matrix, int rows, int cols) {
-    printf("(%d,%d:",rows,cols);
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            printf("%d,", matrix[i][j]);
-        }
-    }
-    printf(")");
-}
 int main() {
-    char input1[128], input2[128], operation[10];
+   double complex **firMatrix,**secMatrix,**resMatrix;
+   char *op, input[MAX_SIZE];
+   int rows,cols;
 
-    // Read inputs for the first matrix
-    printf("Enter the first matrix in the format (rows,cols:elements): ");
-    fgets(input1, sizeof(input1), stdin);
+   //the %[^\n] conversion specification,
+   // which matches a string of all characters not equal to the new line character ('\n')
+   // and stores it (plus a terminating '\0' character) in str.
+   scanf("%[^\n]",input);
+   firMatrix = inputMatrix(input,&rows,&cols);
 
-    int rows1 = 0, cols1 = 0;
-    int *matrixElements1;
-    parseInput(input1, &rows1, &cols1, &matrixElements1);
-
-    int **matrix1 = create2DArray(rows1, cols1);
-    fill2DArray(matrix1, matrixElements1, rows1, cols1);
-
-    // Read inputs for the second matrix
-    printf("Enter the second matrix in the format (rows,cols:elements): ");
-    fgets(input2, sizeof(input2), stdin);
-
-    int rows2 = 0, cols2 = 0;
-    int *matrixElements2;
-    parseInput(input2, &rows2, &cols2, &matrixElements2);
-
-    int **matrix2 = create2DArray(rows2, cols2);
-    fill2DArray(matrix2, matrixElements2, rows2, cols2);
-
-    // Read the operation
-    printf("Enter operation (ADD, SUB, MUL, TRANSPOSE): ");
-    scanf("%s", operation);
-
-    int **result = NULL;
-    if (strcmp(operation, "ADD") == 0) {
-        // Add matrices
-        result = create2DArray(rows1, cols1);
-        for (int i = 0; i < rows1; i++) {
-            for (int j = 0; j < cols1; j++) {
-                result[i][j] = matrix1[i][j] + matrix2[i][j];
-            }
-        }
+    if (!strcmp(op, "NOT") && !strcmp(op,"TRANSPOSE")) {
+        scanf("%[^\n]", input);
+        secMatrix = inputMatrix(input, &rows, &cols);
     }
-    else if (strcmp(operation, "SUB") == 0) {
-        // Subtract matrices
-        result = create2DArray(rows1, cols1);
-        for (int i = 0; i < rows1; i++) {
-            for (int j = 0; j < cols1; j++) {
-                result[i][j] = matrix1[i][j] - matrix2[i][j];
-            }
-        }
+
+    if (strcmp(op, "ADD") == 0) {
+        resMatrix=ADDMatrices(firMatrix,secMatrix,rows,cols);
     }
-    else if (strcmp(operation, "MUL") == 0) {
-        // Multiply matrices
-        result = create2DArray(rows1, cols2);
-        for (int i = 0; i < rows1; i++) {
-            for (int j = 0; j < cols2; j++) {
-                result[i][j] = 0;
-                for (int k = 0; k < cols1; k++) {
-                    result[i][j] += matrix1[i][k] * matrix2[k][j];
-                }
-            }
-        }
-    } else if (strcmp(operation, "TRANSPOSE") == 0) {
-        // Transpose the first matrix
-        result = create2DArray(cols1, rows1);
-        for (int i = 0; i < rows1; i++) {
-            for (int j = 0; j < cols1; j++) {
-                result[j][i] = matrix1[i][j];
-            }
-        }
-    } else {
+    else if (strcmp(op, "SUB") == 0) {
+        resMatrix=SUBMatrices(firMatrix,secMatrix,rows,cols);
+
+    }
+    else if (strcmp(op, "MUL") == 0) {
+        resMatrix=MULMatrices(firMatrix,secMatrix,rows,cols);
+    }
+    else if (strcmp(op, "TRANSPOSE") == 0) {
+        resMatrix=TRANSPOSEMatrices(firMatrix,rows,cols);
+    }
+    else if (strcmp(op, "AND") == 0) {
+        resMatrix=logANDmatrices(firMatrix,secMatrix,rows,cols);
+    }
+    else if (strcmp(op, "OR") == 0) {
+        resMatrix=logORmatrices(firMatrix,secMatrix,rows,cols);
+    }
+    else if (strcmp(op, "NOT") == 0) {
+        resMatrix=logNOTmatrices(firMatrix,rows,cols);
+    }
+    else {
         printf("Invalid operation\n");
         return 1;
     }
 
-    // Print the result matrix
-    if (result != NULL) {
-        printf("Result:\n");
-        printMatrix(result, (strcmp(operation, "TRANSPOSE") == 0) ? cols1 : rows1,
-                    (strcmp(operation, "TRANSPOSE") == 0) ? rows1 : cols1);
-        free2DArray(result, (strcmp(operation, "TRANSPOSE") == 0) ? cols1 : rows1);
+    freeMatrix(firMatrix, rows);
+    if (!strcmp(op, "NOT") && !strcmp(op, "TRANSPOSE")) {
+        freeMatrix(secMatrix, rows);
+    }
+    if (strcmp(op, "TRANSPOSE")==0) {
+        freeMatrix(resMatrix, cols);
+    } else if (strcmp(op, "MUL")==0) {
+        freeMatrix(resMatrix, rows);
+    } else {
+        freeMatrix(resMatrix, rows);
     }
 
-    // Free the allocated memory
-    free(matrixElements1);
-    free(matrixElements2);
-    free2DArray(matrix1, rows1);
-    free2DArray(matrix2, rows2);
 
     return 0;
 
+}
+
+complex double **MULMatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols) {
+    double complex** result = createMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result[i][j] = 0;
+            for (int k = 0; k < cols; k++) {
+                result[i][j] += firMatrix[i][k] * secMatrix[k][j];
+            }
+        }
+    }
+    return result;
+}
+
+double complex** subtractMatrices(double complex** firMatrix, double complex** secMatrix, int rows, int cols) {
+    double complex** result = createMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result[i][j] = firMatrix[i][j] - secMatrix[i][j];
+        }
+    }
+    return result;}
+
+double complex** ADDMatrices(double complex** firMatrix, double complex** secMatrix, int rows, int cols) {
+    double complex** result = createMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result[i][j] = firMatrix[i][j] + secMatrix[i][j];
+        }
+    }
+    return result;
+}
+
+double complex** createMatrix(int rows, int cols) {
+    double complex** matrix = (double complex**)malloc(rows * sizeof(double complex*));
+    for (int i = 0; i < rows; i++) {
+        matrix[i] = (double complex*)malloc(cols * sizeof(double complex));
+    }
+    return matrix;
+}
+void freeMatrix(double complex** matrix, int rows) {
+    for (int i = 0; i < rows; i++) {
+        free(matrix[i]);
+    }
+    free(matrix);
+}
+
+complex double **inputMatrix(char input[MAX_SIZE], int *rows, int *cols){
+    sscanf(input,"(%d,%d:",rows,cols);
+    double complex** matrix = createMatrix(*rows, *cols);
+    char* token = strtok(input, ":,");
+    token = strtok(NULL, ",");
+    for (int i = 0; i < *rows; i++) {
+        for (int j = 0; j < *cols; j++) {
+            double real = 0, imag = 0;
+            char* plus = strchr(token, '+');
+            char* i = strchr(token, 'i');
+            if (plus && i) {
+                // Complex number
+                sscanf(token, "%lf+%lfi", &real, &imag);
+            } else if (i) {
+                // Pure imaginary number
+                sscanf(token, "%lfi", &imag);
+            } else {
+                // Real number (integer or double)
+                sscanf(token, "%lf", &real);
+            }
+            matrix[i][j] = real + imag * I;
+            token = strtok(NULL, ",)");
+        }
+    }
+    return matrix;
 }
