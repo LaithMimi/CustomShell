@@ -83,6 +83,7 @@ build CMakeFiles/Ex1.dir/Ex3q1.c.o: C_COMPILER__Ex1_unscanned_Debug /home/laith/
 
 build Ex1: C_EXECUTABLE_LINKER__Ex1_Debug CMakeFiles/Ex1.dir/ex1.c.o CMakeFiles/Ex1.dir/ex2.c.o CMakeFiles/Ex1.dir/shell.c.o CMakeFiles/Ex1.dir/Ex3q1.c.o
   FLAGS = -g
+  LINK_LIBRARIES = -lm
   OBJECT_DIR = CMakeFiles/Ex1.dir
   POST_BUILD = :
   PRE_LINK = :
