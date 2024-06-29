@@ -11,7 +11,6 @@ int matrixType(complex double **matrix, const int *rows, const int *cols);
 complex double **inputMatrix(char input[MAX_SIZE], int *rows, int *cols);
 
 complex double **createMatrix(int rows, int cols);
-
 void freeMatrix(complex double **matrix, int rows);
 
 complex double **ADDMatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
