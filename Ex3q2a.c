@@ -13,6 +13,7 @@ typedef struct {
     int cols;
     complex double data[1]; // Flexible array member
 } Matrix;
+
 typedef struct {
     Matrix matrix;
     char operation[MAX_OP_LEN];
