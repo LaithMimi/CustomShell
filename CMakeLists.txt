@@ -9,6 +9,8 @@ add_executable(
         ex2.c
         shell.c
         Ex3q1.c
+        Ex3q2a.c
+        Ex3q2b.c
 )
 # Add this to your CMakeLists.txt
 target_link_libraries(Ex1 m)

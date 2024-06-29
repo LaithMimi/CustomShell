@@ -73,6 +73,18 @@ build CMakeFiles/Ex1.dir/Ex3q1.c.o: C_COMPILER__Ex1_unscanned_Debug /home/laith/
   OBJECT_DIR = CMakeFiles/Ex1.dir
   OBJECT_FILE_DIR = CMakeFiles/Ex1.dir
 
+build CMakeFiles/Ex1.dir/Ex3q2a.c.o: C_COMPILER__Ex1_unscanned_Debug /home/laith/CLionProjects/Ex1/Ex3q2a.c || cmake_object_order_depends_target_Ex1
+  DEP_FILE = CMakeFiles/Ex1.dir/Ex3q2a.c.o.d
+  FLAGS = -g -std=gnu11 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles/Ex1.dir
+  OBJECT_FILE_DIR = CMakeFiles/Ex1.dir
+
+build CMakeFiles/Ex1.dir/Ex3q2b.c.o: C_COMPILER__Ex1_unscanned_Debug /home/laith/CLionProjects/Ex1/Ex3q2b.c || cmake_object_order_depends_target_Ex1
+  DEP_FILE = CMakeFiles/Ex1.dir/Ex3q2b.c.o.d
+  FLAGS = -g -std=gnu11 -fdiagnostics-color=always
+  OBJECT_DIR = CMakeFiles/Ex1.dir
+  OBJECT_FILE_DIR = CMakeFiles/Ex1.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target Ex1
@@ -81,7 +93,7 @@ build CMakeFiles/Ex1.dir/Ex3q1.c.o: C_COMPILER__Ex1_unscanned_Debug /home/laith/
 #############################################
 # Link the executable Ex1
 
-build Ex1: C_EXECUTABLE_LINKER__Ex1_Debug CMakeFiles/Ex1.dir/ex1.c.o CMakeFiles/Ex1.dir/ex2.c.o CMakeFiles/Ex1.dir/shell.c.o CMakeFiles/Ex1.dir/Ex3q1.c.o
+build Ex1: C_EXECUTABLE_LINKER__Ex1_Debug CMakeFiles/Ex1.dir/ex1.c.o CMakeFiles/Ex1.dir/ex2.c.o CMakeFiles/Ex1.dir/shell.c.o CMakeFiles/Ex1.dir/Ex3q1.c.o CMakeFiles/Ex1.dir/Ex3q2a.c.o CMakeFiles/Ex1.dir/Ex3q2b.c.o
   FLAGS = -g
   LINK_LIBRARIES = -lm
   OBJECT_DIR = CMakeFiles/Ex1.dir

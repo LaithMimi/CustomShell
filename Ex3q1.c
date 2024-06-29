@@ -61,19 +61,26 @@ int main() {
     // Perform the operation
     if (strcmp(op, "ADD") == 0) {
         resMatrix = ADDMatrices(firMatrix, secMatrix, rows1, cols1);
-    } else if (strcmp(op, "SUB") == 0) {
+    }
+    else if (strcmp(op, "SUB") == 0) {
         resMatrix = SUBMatrices(firMatrix, secMatrix, rows1, cols1);
-    } else if (strcmp(op, "MUL") == 0) {
+    }
+    else if (strcmp(op, "MUL") == 0) {
         resMatrix = MULMatrices(firMatrix, secMatrix, rows1, cols1);
-    } else if (strcmp(op, "TRANSPOSE") == 0) {
+    }
+    else if (strcmp(op, "TRANSPOSE") == 0) {
         resMatrix = TRANSPOSEMatrices(firMatrix, rows1, cols1);
-    } else if (strcmp(op, "AND") == 0) {
+    }
+    else if (strcmp(op, "AND") == 0) {
         resMatrix = logANDmatrices(firMatrix, secMatrix, rows1, cols1);
-    } else if (strcmp(op, "OR") == 0) {
+    }
+    else if (strcmp(op, "OR") == 0) {
         resMatrix = logORmatrices(firMatrix, secMatrix, rows1, cols1);
-    } else if (strcmp(op, "NOT") == 0) {
+    }
+    else if (strcmp(op, "NOT") == 0) {
         resMatrix = logNOTmatrices(firMatrix, rows1, cols1);
-    } else {
+    }
+    else {
         printf("NOT VALID OP\n");
     }
 
@@ -111,9 +118,9 @@ int matrixType(complex double **matrix, const int *rows, const int *cols) {
     }
 
     if (hasComplex) {
-        return 1;
+        return 2;
     } else if (hasDouble) {
-        return 3;
+        return 1;
     } else {//integer numbers
         return 0;
     }
@@ -128,7 +135,6 @@ complex double **logNOTmatrices(complex double **matrix, int rows, int cols) {
     }
     return result;
 }
-
 
 complex double **logORmatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols) {
     complex double **result = createMatrix(rows, cols);
@@ -211,10 +217,14 @@ void freeMatrix(complex double **matrix, int rows) {
 complex double **inputMatrix(char input[MAX_SIZE], int *rows, int *cols) {
     sscanf(input, "(%d,%d:", rows, cols);
     complex double **matrix = createMatrix(*rows, *cols);
+
+
     char *token = strtok(input, ":");
     token = strtok(NULL, ",");
+
     for (int i = 0; i < *rows; i++) {
         for (int j = 0; j < *cols; j++) {
+
             double real = 0, imag = 0;
             char *plus = strchr(token, '+');
             char *minus = strchr(token, '-');
@@ -255,9 +265,9 @@ void printMatrix(complex double **matrix, int rows, int cols) {
             if (type == 0) {
                 // Integer
                 printf("%d", (int) real);
-            } else if (type == 3) {
+            } else if (type == 1) {
                 // Double
-                printf("%.2f", real);
+                printf("%.1f", real);
             } else {
                 // Complex
                 if (imag == 0.0) {
@@ -265,7 +275,15 @@ void printMatrix(complex double **matrix, int rows, int cols) {
                 } else if (real == 0.0) {
                     printf("%di", (int) imag);
                 } else {
-                    printf("%d%+di", (int) real, (int) imag);
+                    if (cimag(matrix[i][j]) > 0) {
+                        printf("%d%+di", (int) real, (int) imag);
+                    }
+                    else if (cimag(matrix[i][j]) < 0){
+                        printf("%d%-di", (int) real, (int) imag);
+                    }
+                    else{
+                        printf("0");
+                    }
                 }
             }
 
