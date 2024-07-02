@@ -32,11 +32,11 @@ int main() {
     sem_t *sem;
 
     char input[128], op[MAX_OP_LEN];
-    Matrix *firMatrix, *secMatrix, *resMatrix;
+    Matrix *firMatrix, *secMatrix;
     int rows1, cols1, rows2, cols2;
 
 
-    key_t key = ftok("/tmp", 'x');
+    key_t key = ftok("/tmp", 'r');
 
     // Allocate a shared memory segment
     shm_id = shmget(key, MAX_SHM, IPC_CREAT | IPC_EXCL | 0600);
@@ -90,7 +90,8 @@ int main() {
             freeMatrix(firMatrix);
             break;
         }
-        if(strcmp(input,"TRANSPOSE")==0 || strcmp(input,"NOT")==0) {
+        if(strcmp(input,"TRANSPOSE\n")==0 || strcmp(input,"NOT\n")==0) {
+            printf("Here 1\n");
             saveToShm(firMatrix,input,matrix_storage_start,mat_counter,sem);
             freeMatrix(firMatrix);
         }
@@ -115,7 +116,7 @@ int main() {
 
     sem_destroy(sem);
 
-    // Detach and remove shared memory
+    //detach and remove shared memory
     shmdt(shm_addr);
     shmctl(shm_id, IPC_RMID, NULL);
 

@@ -1,26 +1,4 @@
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <string.h>
-//#include <unistd.h>
-//#include <sys/ipc.h>
-//#include <sys/shm.h>
-//#include <pthread.h>
-//#include <complex.h>
-//#include <math.h>
-//
-//#define MAX_SIZE 128
-//#define SHM_SIZE 2048
-//#define MAX_MATRICES 10
-//#define MAX_MATRIX_SIZE 10
-//
-//typedef struct {
-//    int count;
-//    complex double *matrices[MAX_MATRICES];
-//    int rows[MAX_MATRICES];
-//    int cols[MAX_MATRICES];
-//    pthread_mutex_t mutex;
-//} SharedData;
-//
+
 //// Function declarations
 //int matrixType(complex double *matrix, int rows, int cols);
 //complex double *createMatrix(int rows, int cols);
@@ -158,33 +136,134 @@
 //    shmdt(shared_data);
 //    return 0;
 //}
-//int matrixType(complex double *matrix, int rows, int cols) {
-//    int hasComplex = 0;
-//    int hasDouble = 0;
-//
-//    for (int i = 0; i < rows; i++) {
-//        for (int j = 0; j < cols; j++) {
-//            double real = creal(matrix[i * cols + j]);
-//            double imag = cimag(matrix[i * cols + j]);
-//
-//            if (imag != 0.0) {
-//                hasComplex = 1;
-//            } else if (floor(real) != real) {
-//                hasDouble = 1;
-//            }
-//        }
-//    }
-//
-//    if (hasComplex) {
-//        return 2;
-//    } else if (hasDouble) {
-//        return 1;
-//    } else {
-//        return 0;
-//    }
-//}
-//
-//complex double *logNOTmatrices(complex double *matrix, int rows, int cols) {
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <complex.h>
+#include <semaphore.h>
+
+#define MAX_SIZE 128
+#define MAX_SHM 2048
+#define MAX_OP_LEN 16
+
+typedef struct {
+    int rows;
+    int cols;
+    complex double data[1];
+} Matrix;
+
+typedef struct {
+    Matrix matrix;
+    char operation[MAX_OP_LEN];
+} MatrixData;
+
+typedef struct {
+    int rows;
+    int cols;
+    complex double data[1];
+} ResultMatrix;
+
+// Function declarations
+MatrixData* readMatrixData(void *shm_addr, int mat_counter, size_t total_size);
+int matrixType(complex double *matrix, int rows, int cols);
+complex double *createMatrix(int rows, int cols);
+/*void freeMatrix(complex double *matrix);
+//complex double *ADDMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
+//complex double *SUBMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
+//complex double *MULMatrices(complex double *firMatrix, complex double *secMatrix, int rows1, int cols1, int rows2, int cols2);
+//complex double *TRANSPOSEMatrices(complex double *matrix, int rows, int cols);
+//complex double *logANDmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
+//complex double *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
+//complex double *logNOTmatrices(complex double *matrix, int rows, int cols);
+ */
+void printMatrix(complex double *matrix, int rows, int cols);
+
+int main() {
+    key_t key = ftok("/tmp", 'r');
+    int shm_id = shmget(key, MAX_SHM, 0666);
+    if (shm_id == -1) {
+        perror("shmget");
+        exit(1);
+    }
+
+    void *shm_addr = shmat(shm_id, NULL, 0);
+    if (shm_addr == (void *)-1) {
+        perror("shmat");
+        exit(1);
+    }
+
+    int *mat_counter = (int *)shm_addr;
+    sem_t *sem = (sem_t *)(shm_addr + sizeof(int));
+    void *matrix_storage_start = shm_addr + sizeof(int) + sizeof(sem_t);
+
+    size_t total_size = sizeof(MatrixData) + (MAX_SIZE - 1) * sizeof(complex double);
+
+    while (1) {
+        printf("Waiting for matrix operations...\n");
+
+        sem_wait(sem);
+
+        if (*mat_counter == 0) {
+            sem_post(sem);
+            sleep(1);
+            continue;
+        }
+
+        // Read all matrix operations from shared memory
+        for (int i = 0; i < *mat_counter; i++) {
+            MatrixData *matrix_data = readMatrixData(matrix_storage_start, i, total_size);
+            if (matrix_data == NULL) continue;
+
+            printf("Matrix %d: ", i + 1);
+            printMatrix(matrix_data->matrix.data,matrix_data->matrix.rows,matrix_data->matrix.cols);
+            printf("Operation: %s\n", matrix_data->operation);
+        }
+
+        *mat_counter = 0;
+
+        sem_post(sem);
+
+        printf("Enter 'REFRESH' to read again or 'EXIT' to exit: ");
+        char command[MAX_SIZE];
+        scanf("%s", command);
+
+        if (strcmp(command, "EXIT") == 0) {
+            break;
+        }
+    }
+
+    shmdt(shm_addr);
+    return 0;
+}
+
+MatrixData* readMatrixData(void *shm_addr, int mat_counter, size_t total_size) {
+    void *target_addr = shm_addr + mat_counter * total_size;
+    return (MatrixData *)target_addr;
+}
+
+int matrixType(complex double *matrix, int rows, int cols) {
+    int is_integer = 1, is_real = 1;
+    for (int i = 0; i < rows * cols; i++) {
+        double real = creal(matrix[i]);
+        double imag = cimag(matrix[i]);
+
+        if (imag != 0.0) {
+            return 2; // Complex matrix
+        }
+        if (real != (int)real) {
+            is_integer = 0;
+        }
+        if (imag != 0.0 || real != (int)real) {
+            is_real = 0;
+        }
+    }
+    return is_integer ? 0 : 1;
+}
+
+/*complex double *logNOTmatrices(complex double *matrix, int rows, int cols) {
 //    complex double *result = createMatrix(rows, cols);
 //    for (int i = 0; i < rows; i++) {
 //        for (int j = 0; j < cols; j++) {
@@ -193,7 +272,9 @@
 //    }
 //    return result;
 //}
-//
+//void freeMatrix(complex double *matrix) {
+//    free(matrix);
+//}
 //complex double *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
 //    complex double *result = createMatrix(rows, cols);
 //    for (int i = 0; i < rows; i++) {
@@ -259,148 +340,32 @@
 //        }
 //    }
 //    return result;
-//}
-//
-//complex double *createMatrix(int rows, int cols) {
-//    complex double *matrix = (complex double *)malloc(rows * cols * sizeof(complex double));
-//    return matrix;
-//}
-//
-//void freeMatrix(complex double *matrix) {
-//    free(matrix);
-//}
-//
-//void printMatrix(complex double *matrix, int rows, int cols) {
-//    printf("(%d,%d:", rows, cols);
-//    int type = matrixType(matrix, rows, cols);
-//    for (int i = 0; i < rows; i++) {
-//        for (int j = 0; j < cols; j++) {
-//            double real = creal(matrix[i * cols + j]);
-//            double imag = cimag(matrix[i * cols + j]);
-//
-//            if (type == 0) {
-//                printf("%d", (int)real);
-//            } else if (type == 1) {
-//                printf("%.1f", real);
-//            } else {
-//                if (imag == 0.0) {
-//                    printf("%d", (int)real);
-//                } else if (real == 0.0) {
-//                    printf("%di", (int)imag);
-//                } else {
-//                    printf("%d%+di", (int)real, (int)imag);
-//                }
-//            }
-//
-//            if (i != rows - 1 || j != cols - 1) {
-//                printf(",");
-//            }
-//        }
-//    }
-//    printf(")\n");
-//}
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <complex.h>
-#include <semaphore.h>
+//}*/
 
-#define MAX_SHM 2048
-
-typedef struct {
-    int rows;
-    int cols;
-    complex double data[1];
-} Matrix;
-
-typedef struct {
-    Matrix matrix;
-    char operation[16];
-} MatrixData;
-
-// Function prototypes
-void printMatrix(complex double **matrix, int rows, int cols);
-int matrixType(complex double **matrix, int rows, int cols);
-
-int main() {
-    key_t key = ftok("/tmp", 'x');
-    int shm_id = shmget(key, MAX_SHM, 0600);
-
-    if (shm_id < 0) {
-        perror("client: shmget:");
-        exit(1);
-    }
-
-    void* shm_addr = shmat(shm_id, NULL, 0);
-    if (shm_addr == (void *)-1) {
-        perror("client: shmat:");
-        exit(1);
-    }
-
-    int *mat_counter = (int*)shm_addr;
-    void *matrix_storage_start = shm_addr + sizeof(int) + sizeof(sem_t);
-
-    for (int i = 0; i < *mat_counter; i++) {
-        MatrixData *matrix_op = (MatrixData *)(matrix_storage_start + i * (sizeof(MatrixData) + (matrix_op->matrix.rows * matrix_op->matrix.cols - 1) * sizeof(complex double)));
-        printf("%d: \n",i+1);
-        printf("Operation: %s\n", matrix_op->operation);
-
-        // Allocate memory to create a matrix representation
-        complex double **matrix = malloc(matrix_op->matrix.rows * sizeof(complex double *));
-        for (int r = 0; r < matrix_op->matrix.rows; r++) {
-            matrix[r] = malloc(matrix_op->matrix.cols * sizeof(complex double));
-            for (int c = 0; c < matrix_op->matrix.cols; c++) {
-                matrix[r][c] = matrix_op->matrix.data[r * matrix_op->matrix.cols + c];
-            }
-        }
-
-        // Print the matrix
-        printMatrix(matrix, matrix_op->matrix.rows, matrix_op->matrix.cols);
-
-        // Free the allocated matrix
-        for (int r = 0; r < matrix_op->matrix.rows; r++) {
-            free(matrix[r]);
-        }
-        free(matrix);
-    }
-
-    shmdt(shm_addr);
-    return 0;
+complex double *createMatrix(int rows, int cols) {
+    complex double *matrix = (complex double *) malloc(rows * cols * sizeof(complex double));
+    return matrix;
 }
 
-// Function to print the matrix
-void printMatrix(complex double **matrix, int rows, int cols) {
-
+void printMatrix(complex double *matrix, int rows, int cols) {
     printf("(%d,%d:", rows, cols);
     int type = matrixType(matrix, rows, cols);
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
-            double real = creal(matrix[i][j]);
-            double imag = cimag(matrix[i][j]);
+            double real = creal(matrix[i * cols + j]);
+            double imag = cimag(matrix[i * cols + j]);
 
             if (type == 0) {
-                // Integer
-                printf("%d", (int) real);
+                printf("%d", (int)real);
             } else if (type == 1) {
-                // Double
                 printf("%.1f", real);
             } else {
-                // Complex
                 if (imag == 0.0) {
-                    printf("%d", (int) real);
+                    printf("%d", (int)real);
                 } else if (real == 0.0) {
-                    printf("%di", (int) imag);
+                    printf("%di", (int)imag);
                 } else {
-                    if (imag > 0) {
-                        printf("%d%+di", (int) real, (int) imag);
-                    }
-                    else if (imag < 0){
-                        printf("%d%-di", (int) real, (int) imag);
-                    }
-                    else{
-                        printf("0");
-                    }
+                    printf("%d%+di", (int)real, (int)imag);
                 }
             }
 
@@ -411,31 +376,3 @@ void printMatrix(complex double **matrix, int rows, int cols) {
     }
     printf(")\n");
 }
-
-// Determine the type of the matrix values
-int matrixType(complex double **matrix, int rows, int cols) {
-    int isInteger = 1, isDouble = 1;
-
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            double real = creal(matrix[i][j]);
-            double imag = cimag(matrix[i][j]);
-
-            if (imag != 0.0) {
-                return 2; // Complex
-            }
-
-            if (real != (int)real) {
-                isInteger = 0;
-            }
-            if (real != (double)(int)real) {
-                isDouble = 0;
-            }
-        }
-    }
-
-    if (isInteger) return 0; // Integer
-    if (isDouble) return 1;  // Double
-    return 2;                // Complex
-}
-
