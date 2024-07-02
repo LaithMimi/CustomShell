@@ -226,7 +226,7 @@
 //}
 //
 //complex double **createMatrix(int rows, int cols) {
-//    complex double **matrix = (complex double **) malloc(rows * sizeof(complex double *));
+//    complex double *matrix = (complex double *) malloc(rows * sizeof(complex double *));
 //    for (int i = 0; i < rows; i++) {
 //        matrix[i] = (complex double *) malloc(cols * sizeof(complex double));
 //    }

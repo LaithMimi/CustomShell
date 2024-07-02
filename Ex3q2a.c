@@ -19,7 +19,7 @@ typedef struct {
     char operation[MAX_OP_LEN];
 } MatrixData;
 
-Matrix *inputMatrix(char input[128]);
+Matrix *inputMatrix(char input[128],int *rows, int *cols);
 Matrix *createMatrix(int rows, int cols);
 void freeMatrix(Matrix *matrix);
 void saveToShm(Matrix *matrix, const char *operation, void *shm_addr, int *mat_counter, sem_t *sem);
@@ -40,13 +40,13 @@ int main() {
     // Allocate a shared memory segment
     shm_id = shmget(key, 2048, IPC_CREAT | IPC_EXCL | 0600);
     if (shm_id < 0) {
-        perror("main: shmget:");
+        perror("Exq2a: shmget:");
         exit(1);
     }
 
     shm_addr = shmat(shm_id, NULL, 0);
     if (shm_addr == (void *)-1) {
-        perror("main: shmat:");
+        perror("Exq2a: shmat:");
         exit(1);
     }
 
@@ -57,11 +57,11 @@ int main() {
     // Initialize the semaphore in shared memory
     sem = (sem_t *)(shm_addr + sizeof(int));
     if (sem_init(sem, 1, 1) == -1) { // 1 means the semaphore is shared between processes
-        perror("main: sem_init:");
+        perror("Exq2a: sem_init:");
         exit(1);
     }
 
-    void *matrix_storage_start = shm_addr + sizeof(int);
+    void *matrix_storage_start = shm_addr + sizeof(int)+sizeof(sem_t);
 
     //do the writing job
     while (1) {
@@ -72,22 +72,42 @@ int main() {
         input[strcspn(input, "\n")] = '\0'; // Remove newline character
         if (strcmp(input, "END") == 0) break;
 
-        matrix = inputMatrix(input);
-        if (matrix == NULL) {
+        firMatrix = inputMatrix(input,&rows1,&cols1);
+        if (!firMatrix) {
             printf("Invalid format. Please use 'rows,cols:val1,val2,...,valN'.\n");
             continue;
         }
-        printf("Enter the operation for the matrix (e.g., 'ADD', 'SUBTRACT'):\n");
-        if (fgets(op, sizeof(op), stdin) == NULL) {
-            freeMatrix(matrix);
+        printf("Enter 2nd matrix (rows,cols:val1,val2,...,valN) or 'END' to exit:\n");
+        if (fgets(input,sizeof(input),stdin)==NULL) {
+            freeMatrix(firMatrix);
             break;
         }
-        // Remove newline character from operation input
-        op[strcspn(op, "\n")] = '\0';
+        input[strcspn(input,"\n")]='\n';
+        if(strcmp(input,"END")==0) {
+            freeMatrix(firMatrix);
+            break;
+        }
+        if(strcmp(input,"TRANSPOSE")==0 || strcmp(input,"NOT")==0) {
+            saveToShm(firMatrix,input,matrix_storage_start,mat_counter,sem);
+            freeMatrix(firMatrix);
+        }
+        else {
+            secMatrix=inputMatrix(input,&rows2,&cols2);
+            if (!secMatrix) {
+                printf("Error allocating memory for second matrix.\n");
+                freeMatrix(firMatrix);
+                continue;
+            }
+            printf("Enter the operation for the matrix (e.g., 'ADD', 'SUBTRACT'):\n");
+            scanf("%s", op);
+            getchar();
 
-        saveToShm(matrix, op, matrix_storage_start, mat_counter, sem);
+            saveToShm(firMatrix,op, matrix_storage_start, mat_counter, sem);
+            saveToShm(secMatrix,op, matrix_storage_start, mat_counter, sem);
 
-        freeMatrix(matrix);
+            freeMatrix(firMatrix);
+            freeMatrix(secMatrix);
+        }
     }
 
     sem_destroy(sem);
@@ -99,16 +119,18 @@ int main() {
     return 0;
 }
 
-Matrix *inputMatrix(char input[128]) {
-    int rows, cols;
-    sscanf(input, "(%d,%d:",rows,cols);
+Matrix *inputMatrix(char input[128],int *rows, int *cols) {
+    if(sscanf(input, "(%d,%d:",rows,cols)) {
+        perror("Invalid matrix format");
+        return NULL;
+    }
 
-    Matrix *matrix = createMatrix(rows, cols);
+    Matrix *matrix = createMatrix(*rows,*cols);
     char *token = strtok(input, ":");
     token = strtok(NULL, ",");
 
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
+    for (int i = 0; i < *rows; i++) {
+        for (int j = 0; j < *cols; j++) {
 
             if (token == NULL) {
                 freeMatrix(matrix);
@@ -131,11 +153,12 @@ Matrix *inputMatrix(char input[128]) {
                 } else {
                     sscanf(token, "%lf", &imag);
                 }
-            } else {
+            }
+            else {
                 // Real number (integer or double)
                 real = strtod(token, &token);
             }
-            matrix->data[i * cols + j] = real + imag * I;
+            matrix->data[i * (*cols) + j] = real + imag * I;
             token = strtok(NULL, ",)");
         }
     }
