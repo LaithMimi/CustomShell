@@ -7,11 +7,12 @@
 #include <semaphore.h>
 
 #define MAX_OP_LEN 16
+#define MAX_SHM 2048
 
 typedef struct {
     int rows;
     int cols;
-    complex double data[1]; // Flexible array member
+    complex double data[1];
 } Matrix;
 
 typedef struct {
@@ -38,7 +39,7 @@ int main() {
     key_t key = ftok("/tmp", 'x');
 
     // Allocate a shared memory segment
-    shm_id = shmget(key, 2048, IPC_CREAT | IPC_EXCL | 0600);
+    shm_id = shmget(key, MAX_SHM, IPC_CREAT | IPC_EXCL | 0600);
     if (shm_id < 0) {
         perror("Exq2a: shmget:");
         exit(1);
@@ -54,9 +55,9 @@ int main() {
     mat_counter = (int*)shm_addr;
     *mat_counter = 0;
 
-    // Initialize the semaphore in shared memory
+    //initialize the semaphore in shm
     sem = (sem_t *)(shm_addr + sizeof(int));
-    if (sem_init(sem, 1, 1) == -1) { // 1 means the semaphore is shared between processes
+    if (sem_init(sem, 1, 1) == -1) { //1: sem is shared between processes
         perror("Exq2a: sem_init:");
         exit(1);
     }
@@ -69,7 +70,7 @@ int main() {
         if (fgets(input, sizeof(input), stdin) == NULL) {
             break;
         }
-        input[strcspn(input, "\n")] = '\0'; // Remove newline character
+        input[strcspn(input, "\n")] = '\0';
         if (strcmp(input, "END") == 0) break;
 
         firMatrix = inputMatrix(input,&rows1,&cols1);
@@ -77,6 +78,8 @@ int main() {
             printf("Invalid format. Please use 'rows,cols:val1,val2,...,valN'.\n");
             continue;
         }
+
+
         printf("Enter 2nd matrix (rows,cols:val1,val2,...,valN) or 'END' to exit:\n");
         if (fgets(input,sizeof(input),stdin)==NULL) {
             freeMatrix(firMatrix);
@@ -120,44 +123,47 @@ int main() {
 }
 
 Matrix *inputMatrix(char input[128],int *rows, int *cols) {
-    if(sscanf(input, "(%d,%d:",rows,cols)) {
+    if(sscanf(input, "(%d,%d:",rows,cols)!=2) {
         perror("Invalid matrix format");
         return NULL;
     }
 
     Matrix *matrix = createMatrix(*rows,*cols);
+
     char *token = strtok(input, ":");
+    if (token == NULL) {
+        freeMatrix(matrix);
+        perror("Invalid matrix data format");
+        return NULL;
+    }
+
     token = strtok(NULL, ",");
 
     for (int i = 0; i < *rows; i++) {
         for (int j = 0; j < *cols; j++) {
-
             if (token == NULL) {
                 freeMatrix(matrix);
+                perror("Insufficient matrix data");
                 return NULL;
             }
+
             double real = 0, imag = 0;
-            char *plus = strchr(token, '+');
-            char *minus = strchr(token, '-');
             char *i_char = strchr(token, 'i');
 
-            if ((plus || minus) && i_char) {
-                // Complex number
-                sscanf(token, "%lf%lf", &real, &imag);
-            } else if (i_char) {
-                // Imaginary number
-                if (token == i_char)
+            if (i_char) {
+                // Parse imaginary part
+                if (token == i_char) {
                     imag = 1.0;
-                else if (token + 1 == i_char) {
+                } else if (token + 1 == i_char && *token == '-') {
                     imag = -1.0;
                 } else {
                     sscanf(token, "%lf", &imag);
                 }
+            } else {
+                // Parse real part
+                sscanf(token, "%lf", &real);
             }
-            else {
-                // Real number (integer or double)
-                real = strtod(token, &token);
-            }
+
             matrix->data[i * (*cols) + j] = real + imag * I;
             token = strtok(NULL, ",)");
         }

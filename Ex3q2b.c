@@ -299,3 +299,143 @@
 //    }
 //    printf(")\n");
 //}
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <complex.h>
+#include <semaphore.h>
+
+#define MAX_SHM 2048
+
+typedef struct {
+    int rows;
+    int cols;
+    complex double data[1];
+} Matrix;
+
+typedef struct {
+    Matrix matrix;
+    char operation[16];
+} MatrixData;
+
+// Function prototypes
+void printMatrix(complex double **matrix, int rows, int cols);
+int matrixType(complex double **matrix, int rows, int cols);
+
+int main() {
+    key_t key = ftok("/tmp", 'x');
+    int shm_id = shmget(key, MAX_SHM, 0600);
+
+    if (shm_id < 0) {
+        perror("client: shmget:");
+        exit(1);
+    }
+
+    void* shm_addr = shmat(shm_id, NULL, 0);
+    if (shm_addr == (void *)-1) {
+        perror("client: shmat:");
+        exit(1);
+    }
+
+    int *mat_counter = (int*)shm_addr;
+    void *matrix_storage_start = shm_addr + sizeof(int) + sizeof(sem_t);
+
+    for (int i = 0; i < *mat_counter; i++) {
+        MatrixData *matrix_op = (MatrixData *)(matrix_storage_start + i * (sizeof(MatrixData) + (matrix_op->matrix.rows * matrix_op->matrix.cols - 1) * sizeof(complex double)));
+        printf("%d: \n",i+1);
+        printf("Operation: %s\n", matrix_op->operation);
+
+        // Allocate memory to create a matrix representation
+        complex double **matrix = malloc(matrix_op->matrix.rows * sizeof(complex double *));
+        for (int r = 0; r < matrix_op->matrix.rows; r++) {
+            matrix[r] = malloc(matrix_op->matrix.cols * sizeof(complex double));
+            for (int c = 0; c < matrix_op->matrix.cols; c++) {
+                matrix[r][c] = matrix_op->matrix.data[r * matrix_op->matrix.cols + c];
+            }
+        }
+
+        // Print the matrix
+        printMatrix(matrix, matrix_op->matrix.rows, matrix_op->matrix.cols);
+
+        // Free the allocated matrix
+        for (int r = 0; r < matrix_op->matrix.rows; r++) {
+            free(matrix[r]);
+        }
+        free(matrix);
+    }
+
+    shmdt(shm_addr);
+    return 0;
+}
+
+// Function to print the matrix
+void printMatrix(complex double **matrix, int rows, int cols) {
+
+    printf("(%d,%d:", rows, cols);
+    int type = matrixType(matrix, rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            double real = creal(matrix[i][j]);
+            double imag = cimag(matrix[i][j]);
+
+            if (type == 0) {
+                // Integer
+                printf("%d", (int) real);
+            } else if (type == 1) {
+                // Double
+                printf("%.1f", real);
+            } else {
+                // Complex
+                if (imag == 0.0) {
+                    printf("%d", (int) real);
+                } else if (real == 0.0) {
+                    printf("%di", (int) imag);
+                } else {
+                    if (imag > 0) {
+                        printf("%d%+di", (int) real, (int) imag);
+                    }
+                    else if (imag < 0){
+                        printf("%d%-di", (int) real, (int) imag);
+                    }
+                    else{
+                        printf("0");
+                    }
+                }
+            }
+
+            if (i != rows - 1 || j != cols - 1) {
+                printf(",");
+            }
+        }
+    }
+    printf(")\n");
+}
+
+// Determine the type of the matrix values
+int matrixType(complex double **matrix, int rows, int cols) {
+    int isInteger = 1, isDouble = 1;
+
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            double real = creal(matrix[i][j]);
+            double imag = cimag(matrix[i][j]);
+
+            if (imag != 0.0) {
+                return 2; // Complex
+            }
+
+            if (real != (int)real) {
+                isInteger = 0;
+            }
+            if (real != (double)(int)real) {
+                isDouble = 0;
+            }
+        }
+    }
+
+    if (isInteger) return 0; // Integer
+    if (isDouble) return 1;  // Double
+    return 2;                // Complex
+}
+
