@@ -18,7 +18,7 @@ typedef struct {
 typedef struct {
     Matrix matrix;
     char operation[MAX_OP_LEN];
-} MatrixData;
+} shmData;
 
 Matrix *inputMatrix(char input[128],int *rows, int *cols);
 Matrix *createMatrix(int rows, int cols);
@@ -191,7 +191,7 @@ void freeMatrix(Matrix *matrix) {
 void saveToShm(Matrix *matrix, const char *operation, void *shm_addr, int *mat_counter, sem_t *sem) {
     // Calculate the size required to store this matrix operation
     size_t matrix_size = sizeof(Matrix) + matrix->rows * matrix->cols * sizeof(complex double) - sizeof(complex double);
-    size_t total_size = sizeof(MatrixData) + (matrix->rows * matrix->cols - 1) * sizeof(complex double);
+    size_t total_size = sizeof(shmData) + (matrix->rows * matrix->cols - 1) * sizeof(complex double);
 
     // Calculate the offset for storing the new matrix operation
     void *target_addr = shm_addr + (*mat_counter * total_size);
@@ -200,7 +200,7 @@ void saveToShm(Matrix *matrix, const char *operation, void *shm_addr, int *mat_c
     sem_wait(sem);
 
     // Copy the matrix data to the shared memory
-    MatrixData *matrix_op = (MatrixData *)target_addr;
+    shmData *matrix_op = (shmData *)target_addr;
 
     memcpy(&(matrix_op->matrix), matrix, matrix_size);
 

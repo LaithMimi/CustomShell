@@ -1,141 +1,3 @@
-
-//// Function declarations
-//int matrixType(complex double *matrix, int rows, int cols);
-//complex double *createMatrix(int rows, int cols);
-//void freeMatrix(complex double *matrix);
-//complex double *ADDMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-//complex double *SUBMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-//complex double *MULMatrices(complex double *firMatrix, complex double *secMatrix, int rows1, int cols1, int rows2, int cols2);
-//complex double *TRANSPOSEMatrices(complex double *matrix, int rows, int cols);
-//complex double *logANDmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-//complex double *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-//complex double *logNOTmatrices(complex double *matrix, int rows, int cols);
-//void printMatrix(complex double *matrix, int rows, int cols);
-//
-//
-//int main() {
-//    int rows=0,cols=0;
-//    key_t key = ftok("server.c", 'R');
-//    int shm_id = shmget(key, sizeof(SharedData), 0666);
-//    if (shm_id == -1) {
-//        perror("shmget");
-//        exit(1);
-//    }
-//
-//    SharedData *shared_data = (SharedData *)shmat(shm_id, NULL, 0);
-//    if (shared_data == (void *)-1) {
-//        perror("shmat");
-//        exit(1);
-//    }
-//
-//    while (1) {
-//        pthread_mutex_lock(&shared_data->mutex);
-//        int count = shared_data->count;
-//        pthread_mutex_unlock(&shared_data->mutex);
-//
-//        if (count == 0) {
-//            sleep(1);
-//            continue;
-//        }
-//
-//        printf("Matrices in shared memory:\n");
-//        for (int i = 0; i < count; i++) {
-//            pthread_mutex_lock(&shared_data->mutex);
-//            complex double *matrix = shared_data->matrices[i];
-//            rows = shared_data->rows[i];
-//            cols = shared_data->cols[i];
-//            pthread_mutex_unlock(&shared_data->mutex);
-//
-//            printf("Matrix %d: ", i + 1);
-//            printMatrix(matrix, rows, cols);
-//        }
-//
-//        printf("Enter operation (ADD, SUB, MUL, TRANSPOSE, LOGAND, LOGOR, LOGNOT) or EXIT: ");
-//        char operation[MAX_SIZE];
-//        scanf("%s", operation);
-//
-//        if (strcmp(operation, "EXIT") == 0) {
-//            break;
-//        }
-//
-//        int index1, index2;
-//        complex double *result = NULL;
-//
-//        if (strcmp(operation, "ADD") == 0 || strcmp(operation, "SUB") == 0 || strcmp(operation, "MUL") == 0 || strcmp(operation, "LOGAND") == 0 || strcmp(operation, "LOGOR") == 0) {
-//            printf("Enter indices of two matrices (1-%d): ", count);
-//            scanf("%d %d", &index1, &index2);
-//            index1--;
-//            index2--;
-//
-//            pthread_mutex_lock(&shared_data->mutex);
-//            complex double *matrix1 = shared_data->matrices[index1];
-//            int rows1 = shared_data->rows[index1];
-//            int cols1 = shared_data->cols[index1];
-//            complex double *matrix2 = shared_data->matrices[index2];
-//            int rows2 = shared_data->rows[index2];
-//            int cols2 = shared_data->cols[index2];
-//            pthread_mutex_unlock(&shared_data->mutex);
-//
-//            if (strcmp(operation, "ADD") == 0) {
-//                if (rows1 == rows2 && cols1 == cols2) {
-//                    result = ADDMatrices(matrix1, matrix2, rows1, cols1);
-//                } else {
-//                    printf("Matrices dimensions do not match for addition\n");
-//                }
-//            } else if (strcmp(operation, "SUB") == 0) {
-//                if (rows1 == rows2 && cols1 == cols2) {
-//                    result = SUBMatrices(matrix1, matrix2, rows1, cols1);
-//                } else {
-//                    printf("Matrices dimensions do not match for subtraction\n");
-//                }
-//            } else if (strcmp(operation, "MUL") == 0) {
-//                result = MULMatrices(matrix1, matrix2, rows1, cols1, rows2, cols2);
-//            } else if (strcmp(operation, "LOGAND") == 0) {
-//                if (rows1 == rows2 && cols1 == cols2) {
-//                    result = logANDmatrices(matrix1, matrix2, rows1, cols1);
-//                } else {
-//                    printf("Matrices dimensions do not match for logical AND\n");
-//                }
-//            } else if (strcmp(operation, "LOGOR") == 0) {
-//                if (rows1 == rows2 && cols1 == cols2) {
-//                    result = logORmatrices(matrix1, matrix2, rows1, cols1);
-//                } else {
-//                    printf("Matrices dimensions do not match for logical OR\n");
-//                }
-//            }
-//        } else if (strcmp(operation, "TRANSPOSE") == 0 || strcmp(operation, "LOGNOT") == 0) {
-//            printf("Enter index of matrix (1-%d): ", count);
-//            scanf("%d", &index1);
-//            index1--;
-//
-//            pthread_mutex_lock(&shared_data->mutex);
-//            complex double *matrix = shared_data->matrices[index1];
-//            rows = shared_data->rows[index1];
-//            cols = shared_data->cols[index1];
-//            pthread_mutex_unlock(&shared_data->mutex);
-//
-//            if (strcmp(operation, "TRANSPOSE") == 0) {
-//                result = TRANSPOSEMatrices(matrix, rows, cols);
-//            } else if (strcmp(operation, "LOGNOT") == 0) {
-//                result = logNOTmatrices(matrix, rows, cols);
-//            }
-//        }
-//
-//        if (result != NULL) {
-//            printf("Result: ");
-//            if (strcmp(operation, "TRANSPOSE") == 0) {
-//                printMatrix(result, cols, rows);
-//                freeMatrix(result);
-//            } else {
-//                printMatrix(result, shared_data->rows[index1], shared_data->cols[index1]);
-//                freeMatrix(result);
-//            }
-//        }
-//    }
-//
-//    shmdt(shared_data);
-//    return 0;
-//}
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -158,7 +20,7 @@ typedef struct {
 typedef struct {
     Matrix matrix;
     char operation[MAX_OP_LEN];
-} MatrixData;
+} shmData;
 
 typedef struct {
     int rows;
@@ -167,19 +29,19 @@ typedef struct {
 } ResultMatrix;
 
 // Function declarations
-MatrixData* readMatrixData(void *shm_addr, int mat_counter, size_t total_size);
+shmData* readMatrixData(void *shm_addr, int mat_counter, size_t total_size);
 int matrixType(complex double *matrix, int rows, int cols);
-complex double *createMatrix(int rows, int cols);
-/*void freeMatrix(complex double *matrix);
-//complex double *ADDMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-//complex double *SUBMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-//complex double *MULMatrices(complex double *firMatrix, complex double *secMatrix, int rows1, int cols1, int rows2, int cols2);
-//complex double *TRANSPOSEMatrices(complex double *matrix, int rows, int cols);
-//complex double *logANDmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-//complex double *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-//complex double *logNOTmatrices(complex double *matrix, int rows, int cols);
- */
-void printMatrix(complex double *matrix, int rows, int cols);
+void freeMatrix(ResultMatrix *matrix);
+void printMatrix(ResultMatrix* matrix);
+
+ResultMatrix *createMatrix(int rows, int cols);
+ResultMatrix *ADDMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
+ResultMatrix *SUBMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
+ResultMatrix *MULMatrices(complex double *firMatrix, complex double *secMatrix, int rows1, int cols1, int rows2, int cols2);
+ResultMatrix *TRANSPOSEMatrices(complex double *matrix, int rows, int cols);
+ResultMatrix *logANDmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
+ResultMatrix *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
+ResultMatrix *logNOTmatrices(complex double *matrix, int rows, int cols);
 
 int main() {
     key_t key = ftok("/tmp", 'r');
@@ -199,10 +61,12 @@ int main() {
     sem_t *sem = (sem_t *)(shm_addr + sizeof(int));
     void *matrix_storage_start = shm_addr + sizeof(int) + sizeof(sem_t);
 
-    size_t total_size = sizeof(MatrixData) + (MAX_SIZE - 1) * sizeof(complex double);
+    size_t total_size = sizeof(shmData) + (MAX_SIZE - 1) * sizeof(complex double);
 
     while (1) {
-        printf("Waiting for matrix operations...\n");
+       // printf("Waiting for matrix operations...\n");
+
+/*there is problems*/
 
         sem_wait(sem);
 
@@ -214,34 +78,78 @@ int main() {
 
         // Read all matrix operations from shared memory
         for (int i = 0; i < *mat_counter; i++) {
-            MatrixData *matrix_data = readMatrixData(matrix_storage_start, i, total_size);
-            if (matrix_data == NULL) continue;
+            shmData *firMatrix = readMatrixData(matrix_storage_start, i, total_size);
+            if (firMatrix == NULL) continue;
 
-            printf("Matrix %d: ", i + 1);
-            printMatrix(matrix_data->matrix.data,matrix_data->matrix.rows,matrix_data->matrix.cols);
-            printf("Operation: %s\n", matrix_data->operation);
+            ResultMatrix *result = NULL;
+            if (strcmp(firMatrix->operation, "NOT") == 0) {
+                result = (ResultMatrix *) logNOTmatrices(firMatrix->matrix.data, firMatrix->matrix.rows,
+                                                         firMatrix->matrix.cols);
+            }
+            else if (strcmp(firMatrix->operation, "TRANSPOSE") == 0) {
+                result = (ResultMatrix *) TRANSPOSEMatrices(firMatrix->matrix.data, firMatrix->matrix.rows,
+                                                            firMatrix->matrix.cols);
+            }
+            else if (i + 1 < *mat_counter) {
+                shmData *secMatrix = readMatrixData(matrix_storage_start, i + 1, total_size);
+                if (secMatrix == NULL) continue;
+                if (strcmp(firMatrix->operation, "ADD") == 0) {
+                    result = (ResultMatrix *) ADDMatrices(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                          firMatrix->matrix.rows, firMatrix->matrix.cols);
+                } else if (strcmp(firMatrix->operation, "SUB") == 0) {
+                    result = (ResultMatrix *) SUBMatrices(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                          firMatrix->matrix.rows, firMatrix->matrix.cols);
+                } else if (strcmp(firMatrix->operation, "MUL") == 0) {
+                    result = (ResultMatrix *) MULMatrices(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                          firMatrix->matrix.rows, firMatrix->matrix.cols,
+                                                          secMatrix->matrix.rows, secMatrix->matrix.cols);
+                } else if (strcmp(firMatrix->operation, "AND") == 0) {
+                    result = (ResultMatrix *) logANDmatrices(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                             firMatrix->matrix.rows, firMatrix->matrix.cols);
+                } else if (strcmp(firMatrix->operation, "OR") == 0) {
+                    result = (ResultMatrix *) logORmatrices(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                            firMatrix->matrix.rows, firMatrix->matrix.cols);
+                }
+                i++; // Skip the next matrix as we've used it in this operation
+            }
+            if (result != NULL) {
+                printf("Result: ");
+                printMatrix(result);
+                freeMatrix( result);
+            } else {
+                printf("Operation not performed or invalid.\n");
+            }
+
         }
-
         *mat_counter = 0;
 
         sem_post(sem);
 
-        printf("Enter 'REFRESH' to read again or 'EXIT' to exit: ");
+        printf("Enter 'REFRESH' to read again or 'END' to exit: ");
         char command[MAX_SIZE];
-        scanf("%s", command);
-
-        if (strcmp(command, "EXIT") == 0) {
+        if (fgets(command, MAX_SIZE, stdin) == NULL) {
+            perror("fgets");
             break;
+        }
+        command[strcspn(command, "\n")] = 0;
+
+        if (strcmp(command, "END") == 0) {
+            break;
+        }else if (strcmp(command, "REFRESH") != 0) {
+            printf("Invalid command. Please enter 'REFRESH' or 'END'.\n");
         }
     }
 
-    shmdt(shm_addr);
+    if (shmdt(shm_addr) == -1) {
+        perror("shmdt");
+    }
+
     return 0;
 }
 
-MatrixData* readMatrixData(void *shm_addr, int mat_counter, size_t total_size) {
+shmData* readMatrixData(void *shm_addr, int mat_counter, size_t total_size) {
     void *target_addr = shm_addr + mat_counter * total_size;
-    return (MatrixData *)target_addr;
+    return (shmData *)target_addr;
 }
 
 int matrixType(complex double *matrix, int rows, int cols) {
@@ -262,98 +170,15 @@ int matrixType(complex double *matrix, int rows, int cols) {
     }
     return is_integer ? 0 : 1;
 }
-
-/*complex double *logNOTmatrices(complex double *matrix, int rows, int cols) {
-//    complex double *result = createMatrix(rows, cols);
-//    for (int i = 0; i < rows; i++) {
-//        for (int j = 0; j < cols; j++) {
-//            result[i * cols + j] = (cabs(matrix[i * cols + j]) == 0) ? 1.0 : 0.0;
-//        }
-//    }
-//    return result;
-//}
-//void freeMatrix(complex double *matrix) {
-//    free(matrix);
-//}
-//complex double *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
-//    complex double *result = createMatrix(rows, cols);
-//    for (int i = 0; i < rows; i++) {
-//        for (int j = 0; j < cols; j++) {
-//            result[i * cols + j] = (cabs(firMatrix[i * cols + j]) != 0 || cabs(secMatrix[i * cols + j]) != 0) ? 1.0 : 0.0;
-//        }
-//    }
-//    return result;
-//}
-//
-//complex double *logANDmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
-//    complex double *result = createMatrix(rows, cols);
-//    for (int i = 0; i < rows; i++) {
-//        for (int j = 0; j < cols; j++) {
-//            result[i * cols + j] = (cabs(firMatrix[i * cols + j]) != 0 && cabs(secMatrix[i * cols + j]) != 0) ? 1.0 : 0.0;
-//        }
-//    }
-//    return result;
-//}
-//
-//complex double *TRANSPOSEMatrices(complex double *matrix, int rows, int cols) {
-//    complex double *result = createMatrix(cols, rows);
-//    for (int i = 0; i < rows; i++) {
-//        for (int j = 0; j < cols; j++) {
-//            result[j * rows + i] = matrix[i * cols + j];
-//        }
-//    }
-//    return result;
-//}
-//
-//complex double *MULMatrices(complex double *firMatrix, complex double *secMatrix, int rows1, int cols1, int rows2, int cols2) {
-//    if (cols1 != rows2) {
-//        printf("Matrix multiplication is not possible\n");
-//        return NULL;
-//    }
-//    complex double *result = createMatrix(rows1, cols2);
-//    for (int i = 0; i < rows1; i++) {
-//        for (int j = 0; j < cols2; j++) {
-//            result[i * cols2 + j] = 0 + 0 * I;
-//            for (int k = 0; k < cols1; k++) {
-//                result[i * cols2 + j] += firMatrix[i * cols1 + k] * secMatrix[k * cols2 + j];
-//            }
-//        }
-//    }
-//    return result;
-//}
-//
-//complex double *SUBMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
-//    complex double *result = createMatrix(rows, cols);
-//    for (int i = 0; i < rows; i++) {
-//        for (int j = 0; j < cols; j++) {
-//            result[i * cols + j] = firMatrix[i * cols + j] - secMatrix[i * cols + j];
-//        }
-//    }
-//    return result;
-//}
-//
-//complex double *ADDMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
-//    complex double *result = createMatrix(rows, cols);
-//    for (int i = 0; i < rows; i++) {
-//        for (int j = 0; j < cols; j++) {
-//            result[i * cols + j] = firMatrix[i * cols + j] + secMatrix[i * cols + j];
-//        }
-//    }
-//    return result;
-//}*/
-
-complex double *createMatrix(int rows, int cols) {
-    complex double *matrix = (complex double *) malloc(rows * cols * sizeof(complex double));
-    return matrix;
-}
-
-void printMatrix(complex double *matrix, int rows, int cols) {
-    printf("(%d,%d:", rows, cols);
-    int type = matrixType(matrix, rows, cols);
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            double real = creal(matrix[i * cols + j]);
-            double imag = cimag(matrix[i * cols + j]);
+void freeMatrix(ResultMatrix *matrix) {
+    free(matrix);
+}void printMatrix(ResultMatrix* matrix) {
+    printf("(%d,%d:", matrix->rows, matrix->cols);
+    int type = matrixType(matrix->data, matrix->rows, matrix->cols);
+    for (int i = 0; i < matrix->rows; i++) {
+        for (int j = 0; j < matrix->cols; j++) {
+            double real = creal(matrix->data[i * matrix->cols + j]);
+            double imag = cimag(matrix->data[i * matrix->cols + j]);
 
             if (type == 0) {
                 printf("%d", (int)real);
@@ -368,11 +193,89 @@ void printMatrix(complex double *matrix, int rows, int cols) {
                     printf("%d%+di", (int)real, (int)imag);
                 }
             }
-
-            if (i != rows - 1 || j != cols - 1) {
+            if (i != matrix->rows - 1 || j != matrix->cols - 1) {
                 printf(",");
             }
         }
     }
     printf(")\n");
 }
+
+ResultMatrix *logNOTmatrices(complex double *matrix, int rows, int cols) {
+    ResultMatrix *result = createMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result->data[i * cols + j]  = (cabs(matrix[i * cols + j]) == 0) ? 1.0 : 0.0;
+        }
+    }
+    return result;
+}
+ResultMatrix *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
+    ResultMatrix *result = createMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result->data[i * cols + j] = (cabs(firMatrix[i * cols + j]) != 0 || cabs(secMatrix[i * cols + j]) != 0) ? 1.0 : 0.0;
+        }
+    }
+    return result;
+}
+ResultMatrix *logANDmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
+    ResultMatrix *result = createMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+       for (int j = 0; j < cols; j++) {
+           result->data[i * cols + j]  = (cabs(firMatrix[i * cols + j]) != 0 && cabs(secMatrix[i * cols + j]) != 0) ? 1.0 : 0.0;
+        }
+    }
+    return result;
+}
+ResultMatrix *TRANSPOSEMatrices(complex double *matrix, int rows, int cols) {
+    ResultMatrix *result = createMatrix(cols, rows);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result->data[i * cols + j]  = matrix[i * cols + j];
+        }
+    }
+    return result;
+}
+ResultMatrix *MULMatrices(complex double *firMatrix, complex double *secMatrix, int rows1, int cols1, int rows2, int cols2) {
+    ResultMatrix *result = createMatrix(rows1, cols2);
+    for (int i = 0; i < rows1; i++) {
+        for (int j = 0; j < cols2; j++) {
+            result->data[i * cols2 + j] = 0 + 0 * I;
+            for (int k = 0; k < cols1; k++) {
+                result->data[i * cols1 + j]  += firMatrix[i * cols1 + k] * secMatrix[k * cols2 + j];
+            }
+        }
+    }
+    return result;
+}
+ResultMatrix *SUBMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
+    ResultMatrix *result = createMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result->data[i * cols + j] = firMatrix[i * cols + j] - secMatrix[i * cols + j];
+        }
+    }
+    return result;
+}
+ResultMatrix *ADDMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
+    ResultMatrix *result = createMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result->data[i * cols + j] = firMatrix[i * cols + j] + secMatrix[i * cols + j];
+        }
+    }
+    return result;
+}
+ResultMatrix *createMatrix(int rows, int cols) {
+    size_t size = sizeof(ResultMatrix) + (rows * cols - 1) * sizeof(complex double);
+    ResultMatrix* result = (ResultMatrix*)malloc(size);
+    if (result == NULL) {
+        perror("Failed to allocate memory for ResultMatrix");
+        exit(1);
+    }
+    result->rows = rows;
+    result->cols = cols;
+    return result;
+}
+
