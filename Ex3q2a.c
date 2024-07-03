@@ -36,7 +36,7 @@ int main() {
     int rows1, cols1, rows2, cols2;
 
 
-    key_t key = ftok("/tmp", 'Y');
+    key_t key = ftok("/tmp", 'A');
 
     // Allocate a shared memory segment
     shm_id = shmget(key, MAX_SHM, IPC_CREAT | IPC_EXCL | 0600);

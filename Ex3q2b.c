@@ -45,7 +45,7 @@ ResultMatrix *OR(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols);
 ResultMatrix *NOT(cmpdouble *matrix, int rows, int cols);
 
 int main() {
-    key_t key = ftok("/tmp", 'Y');
+    key_t key = ftok("/tmp", 'A');
     int shm_id = shmget(key, MAX_SHM, 0666);
     if (shm_id == -1) {
         perror("shmget");
@@ -63,75 +63,102 @@ int main() {
     size_t total_size = sizeof(shmData) + (MAX_SIZE - 1) * sizeof(cmpdouble);
 
     while (1) {
-        sem_wait(sem); //wait for the sem to be available
+        if (sem_wait(sem) == -1) {
+            perror("sem_wait failed");
+            exit(1);
+        }
 
-        if (*mat_counter == 0) { //if no matrices
-            sem_post(sem);//release the sem
+        printf("Current mat_counter: %d\n", *mat_counter);  // Debugging output
+
+        if (*mat_counter == 0) {
+            if (sem_post(sem) == -1) {
+                perror("sem_post failed");
+                exit(1);
+            }
             sleep(1);
             continue;
         }
 
-        // Read all matrix operations from shared memory
         for (int i = 0; i < *mat_counter; i++) {
             shmData *firMatrix = readMatrixData(storageStart, i, total_size);
-            if (firMatrix == NULL) continue;
+            if (firMatrix == NULL) {
+                fprintf(stderr, "Failed to read matrix %d\n", i);
+                continue;
+            }
+
+            printf("Processing operation: %s\n", firMatrix->operation);  // Debugging output
+
             if (strcmp(firMatrix->operation, "END") == 0) {
-                sem_post(sem);
-                sem_destroy(sem);
-                shmdt(mat_counter);
-                shmctl(shm_id, IPC_RMID, NULL);
+                if (sem_post(sem) == -1) {
+                    perror("sem_post failed");
+                }
+                if (sem_destroy(sem) == -1) {
+                    perror("sem_destroy failed");
+                }
+                if (shmdt(shmat(shm_id, NULL, 0)) == -1) {
+                    perror("shmdt failed");
+                }
+                if (shmctl(shm_id, IPC_RMID, NULL) == -1) {
+                    perror("shmctl failed");
+                }
                 exit(0);
             }
 
             ResultMatrix *result = NULL;
-            if (strcmp(firMatrix->operation, "NOT\n") == 0) {
-                result = (ResultMatrix *) NOT(firMatrix->matrix.data, firMatrix->matrix.rows,
-                                              firMatrix->matrix.cols);
+            if (strcmp(firMatrix->operation, "NOT") == 0) {
+                result = NOT(firMatrix->matrix.data, firMatrix->matrix.rows, firMatrix->matrix.cols);
             }
-            else if (strcmp(firMatrix->operation, "TRANSPOSE\n") == 0) {
-                result = (ResultMatrix *) TRANSPOSE(firMatrix->matrix.data, firMatrix->matrix.rows,
-                                                    firMatrix->matrix.cols);
+            else if (strcmp(firMatrix->operation, "TRANSPOSE") == 0) {
+                result = TRANSPOSE(firMatrix->matrix.data, firMatrix->matrix.rows, firMatrix->matrix.cols);
             }
-            else if (i + 1 < *mat_counter) {
+            else {
                 shmData *secMatrix = readMatrixData(storageStart, i + 1, total_size);
-                if (secMatrix == NULL) continue;
-                if (strcmp(firMatrix->operation, "ADD\n") == 0) {
-                    result = (ResultMatrix *) ADD(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                  firMatrix->matrix.rows, firMatrix->matrix.cols);
+                if (secMatrix == NULL) {
+                    fprintf(stderr, "Failed to read second matrix for operation %s\n", firMatrix->operation);
+                    continue;
                 }
-                else if (strcmp(firMatrix->operation, "SUB\n") == 0) {
-                    result = (ResultMatrix *) SUB(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                  firMatrix->matrix.rows, firMatrix->matrix.cols);
+                if (strcmp(firMatrix->operation, "ADD") == 0) {
+                    result = ADD(firMatrix->matrix.data, secMatrix->matrix.data,
+                                 firMatrix->matrix.rows, firMatrix->matrix.cols);
                 }
-                else if (strcmp(firMatrix->operation, "MUL\n") == 0) {
-                    result = (ResultMatrix *) MUL(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                  firMatrix->matrix.rows, firMatrix->matrix.cols,
-                                                  secMatrix->matrix.rows, secMatrix->matrix.cols);
+                else if (strcmp(firMatrix->operation, "SUB") == 0) {
+                    result = SUB(firMatrix->matrix.data, secMatrix->matrix.data,
+                                 firMatrix->matrix.rows, firMatrix->matrix.cols);
                 }
-                else if (strcmp(firMatrix->operation, "AND\n") == 0) {
-                    result = (ResultMatrix *) AND(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                  firMatrix->matrix.rows, firMatrix->matrix.cols);
+                else if (strcmp(firMatrix->operation, "MUL") == 0) {
+                    result = MUL(firMatrix->matrix.data, secMatrix->matrix.data,
+                                 firMatrix->matrix.rows, firMatrix->matrix.cols,
+                                 secMatrix->matrix.rows, secMatrix->matrix.cols);
                 }
-                else if (strcmp(firMatrix->operation, "OR\n") == 0) {
-                    result = (ResultMatrix *) OR(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                 firMatrix->matrix.rows, firMatrix->matrix.cols);
+                else if (strcmp(firMatrix->operation, "AND") == 0) {
+                    result = AND(firMatrix->matrix.data, secMatrix->matrix.data,
+                                 firMatrix->matrix.rows, firMatrix->matrix.cols);
                 }
-                i++; //skip the next matrix as we've used it in this operation
+                else if (strcmp(firMatrix->operation, "OR") == 0) {
+                    result = OR(firMatrix->matrix.data, secMatrix->matrix.data,
+                                firMatrix->matrix.rows, firMatrix->matrix.cols);
+                }
+                i++;
             }
             if (result != NULL) {
                 printf("Result: ");
                 printMatrix(result);
-                freeMatrix( result);
+                freeMatrix(result);
             } else {
-                printf("Operation not performed or invalid.\n");
+                fprintf(stderr, "Operation %s not performed or invalid.\n", firMatrix->operation);
             }
-
         }
-        *mat_counter = 0; //reset the counter to indicate all matrices have been processed
-        sem_post(sem); //release the semaphore
+        *mat_counter = 0;
+        if (sem_post(sem) == -1) {
+            perror("sem_post failed");
+            exit(1);
+        }
     }
 
-    shmdt(shmat(shm_id, NULL, 0));
+    if (shmdt(shmat(shm_id, NULL, 0)) == -1) {
+        perror("shmdt failed");
+        exit(1);
+    }
 
     return 0;
 }
@@ -183,7 +210,7 @@ void printMatrix(ResultMatrix* matrix) {
                     printf("%d%+di", (int)real, (int)imag);
                 }
             }
-            if (i != matrix->rows - 1 || j != matrix->cols - 1) {
+            if (i != matrix->rows-1 || j != matrix->cols-1) {
                 printf(",");
             }
         }
@@ -210,9 +237,12 @@ ResultMatrix *OR(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols) 
     return result;
 }
 ResultMatrix *AND(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols) {
+    printf("in ADD\n");
     ResultMatrix *result = createMatrix(rows, cols);
+    printf("in ADD 1\n");
     for (int i = 0; i < rows; i++) {
        for (int j = 0; j < cols; j++) {
+           printf("in ADD 2\n");
            result->data[i * cols + j]  = (cabs(firMatrix[i * cols + j]) != 0 && cabs(secMatrix[i * cols + j]) != 0) ? 1.0 : 0.0;
         }
     }
@@ -259,8 +289,7 @@ ResultMatrix *ADD(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols)
 }
 
 ResultMatrix *createMatrix(int rows, int cols) {
-    size_t size = sizeof(ResultMatrix) + (rows * cols - 1) * sizeof(complex double);
-    ResultMatrix* result = (ResultMatrix*)malloc(size);
+    ResultMatrix* result = (ResultMatrix*)malloc(sizeof(ResultMatrix) + (rows * cols - 1) * sizeof(cmpdouble));
     if (result == NULL) {
         perror("Failed to allocate memory for ResultMatrix");
         exit(1);
