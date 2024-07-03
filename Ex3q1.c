@@ -9,13 +9,13 @@
 //int matrixType(complex double **matrix, const int *rows, const int *cols);
 //complex double **inputMatrix(char input[MAX_SIZE], int *rows, int *cols);
 //complex double **createMatrix(int rows, int cols);
-//complex double **ADDMatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
-//complex double **SUBMatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
-//complex double **MULMatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
-//complex double **TRANSPOSEMatrices(complex double **firMatrix, int rows, int cols);
-//complex double **logANDmatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
-//complex double **logORmatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
-//complex double **logNOTmatrices(complex double **matrix, int rows, int cols);
+//complex double **ADD(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
+//complex double **SUB(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
+//complex double **MUL(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
+//complex double **TRANSPOSE(complex double **firMatrix, int rows, int cols);
+//complex double **AND(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
+//complex double **OR(complex double **firMatrix, complex double **secMatrix, int rows, int cols);
+//complex double **NOT(complex double **matrix, int rows, int cols);
 //void printMatrix(complex double **matrix, int rows, int cols);
 //void freeMatrix(complex double **matrix, int rows);
 //
@@ -51,11 +51,11 @@
 //            break;
 //        }
 //        if (strcmp(input, "TRANSPOSE") == 0) {
-//            resMatrix = TRANSPOSEMatrices(firMatrix, rows1, cols1);
+//            resMatrix = TRANSPOSE(firMatrix, rows1, cols1);
 //            rows2 = cols1; // Transpose changes dimensions
 //            cols2 = rows1;
 //        } else if (strcmp(input, "NOT") == 0 ) {
-//            resMatrix = logNOTmatrices(firMatrix, rows1, cols1);
+//            resMatrix = NOT(firMatrix, rows1, cols1);
 //            if (resMatrix==NULL) {
 //                perror("ERR");
 //                continue;
@@ -74,23 +74,23 @@
 //            getchar(); //Clear the newline character left by scanf
 //
 //            if (strcmp(op, "ADD") == 0) {
-//                resMatrix = ADDMatrices(firMatrix, secMatrix, rows1, cols1);
+//                resMatrix = ADD(firMatrix, secMatrix, rows1, cols1);
 //            }
 //            else if (strcmp(op, "SUB") == 0 ) {
-//                resMatrix = SUBMatrices(firMatrix, secMatrix, rows1, cols1);
+//                resMatrix = SUB(firMatrix, secMatrix, rows1, cols1);
 //            }
 //            else if (strcmp(op, "MUL") == 0) {
-//                resMatrix = MULMatrices(firMatrix, secMatrix, rows1, cols1);
+//                resMatrix = MUL(firMatrix, secMatrix, rows1, cols1);
 //            }
 //            else if (strcmp(op, "AND") == 0 ) {
-//                resMatrix = logANDmatrices(firMatrix, secMatrix, rows1, cols1);
+//                resMatrix = AND(firMatrix, secMatrix, rows1, cols1);
 //                if (resMatrix==NULL) {
 //                    perror("ERR");
 //                    continue;
 //                }
 //            }
 //            else if (strcmp(op, "OR") == 0 && rows1 == rows2 && cols1 == cols2) {
-//                resMatrix = logORmatrices(firMatrix, secMatrix, rows1, cols1);
+//                resMatrix = OR(firMatrix, secMatrix, rows1, cols1);
 //                if (resMatrix==NULL) {
 //                    perror("ERR");
 //                    continue;
@@ -143,7 +143,7 @@
 //    }
 //}
 //
-//complex double **logNOTmatrices(complex double **matrix, int rows, int cols) {
+//complex double **NOT(complex double **matrix, int rows, int cols) {
 //    complex double **result = createMatrix(rows, cols);
 //    for (int i = 0; i < rows; i++) {
 //        for (int j = 0; j < cols; j++) {
@@ -156,7 +156,7 @@
 //    return result;
 //}
 //
-//complex double **logORmatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols) {
+//complex double **OR(complex double **firMatrix, complex double **secMatrix, int rows, int cols) {
 //    complex double **result = createMatrix(rows, cols);
 //    for (int i = 0; i < rows; i++) {
 //        for (int j = 0; j < cols; j++) {
@@ -169,7 +169,7 @@
 //    return result;
 //}
 //
-//complex double **logANDmatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols) {
+//complex double **AND(complex double **firMatrix, complex double **secMatrix, int rows, int cols) {
 //    complex double **result = createMatrix(rows, cols);
 //    for (int i = 0; i < rows; i++) {
 //        for (int j = 0; j < cols; j++) {
@@ -182,7 +182,7 @@
 //    return result;
 //}
 //
-//complex double **TRANSPOSEMatrices(complex double **firMatrix, int rows, int cols) {
+//complex double **TRANSPOSE(complex double **firMatrix, int rows, int cols) {
 //    complex double **result = createMatrix(cols, rows);
 //    for (int i = 0; i < rows; i++) {
 //        for (int j = 0; j < cols; j++) {
@@ -192,7 +192,7 @@
 //    return result;
 //}
 //
-//complex double **MULMatrices(complex double **firMatrix, complex double **secMatrix, int rows, int cols) {
+//complex double **MUL(complex double **firMatrix, complex double **secMatrix, int rows, int cols) {
 //    complex double **result = createMatrix(rows, cols);
 //    for (int i = 0; i < rows; i++) {
 //        for (int j = 0; j < cols; j++) {
@@ -205,7 +205,7 @@
 //    return result;
 //}
 //
-//complex double **SUBMatrices(double complex **firMatrix, double complex **secMatrix, int rows, int cols) {
+//complex double **SUB(double complex **firMatrix, double complex **secMatrix, int rows, int cols) {
 //    complex double **result = createMatrix(rows, cols);
 //    for (int i = 0; i < rows; i++) {
 //        for (int j = 0; j < cols; j++) {
@@ -215,7 +215,7 @@
 //    return result;
 //}
 //
-//complex double **ADDMatrices(double complex **firMatrix, double complex **secMatrix, int rows, int cols) {
+//complex double **ADD(double complex **firMatrix, double complex **secMatrix, int rows, int cols) {
 //    complex double **result = createMatrix(rows, cols);
 //    for (int i = 0; i < rows; i++) {
 //        for (int j = 0; j < cols; j++) {

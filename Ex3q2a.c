@@ -8,11 +8,12 @@
 
 #define MAX_OP_LEN 16
 #define MAX_SHM 2048
+typedef complex double cmpdouble;
 
 typedef struct {
     int rows;
     int cols;
-    complex double data[1];
+    cmpdouble data[1];
 } Matrix;
 
 typedef struct {
@@ -27,7 +28,6 @@ void saveToShm(Matrix *matrix, const char *operation, void *shm_addr, int *mat_c
 
 int main() {
     int shm_id;
-    void* shm_addr;
     int *mat_counter;
     sem_t *sem;
 
@@ -45,24 +45,23 @@ int main() {
         exit(1);
     }
 
-    shm_addr = shmat(shm_id, NULL, 0);
-    if (shm_addr == (void *)-1) {
+    if (shmat(shm_id, NULL, 0) == (void *)-1) {
         perror("Exq2a: shmat:");
         exit(1);
     }
 
     // Initialize the matrix index
-    mat_counter = (int*)shm_addr;
+    mat_counter = (int*) shmat(shm_id, NULL, 0);
     *mat_counter = 0;
 
     //initialize the semaphore in shm
-    sem = (sem_t *)(shm_addr + sizeof(int));
+    sem = (sem_t *)(shmat(shm_id, NULL, 0)+ sizeof(int));
     if (sem_init(sem, 1, 1) == -1) { //1: sem is shared between processes
         perror("Exq2a: sem_init:");
         exit(1);
     }
 
-    void *matrix_storage_start = shm_addr + sizeof(int)+sizeof(sem_t);
+    void *storageStart = shmat(shm_id, NULL, 0) + sizeof(int) + sizeof(sem_t);
 
     //do the writing job
     while (1) {
@@ -71,7 +70,10 @@ int main() {
             break;
         }
         input[strcspn(input, "\n")] = '\0';
-        if (strcmp(input, "END") == 0) break;
+        if (strcmp(input, "END") == 0) {
+            shmctl(shm_id, IPC_RMID, NULL);
+            break;
+        }
 
         firMatrix = inputMatrix(input,&rows1,&cols1);
         if (!firMatrix) {
@@ -88,11 +90,12 @@ int main() {
         input[strcspn(input,"\n")]='\n';
         if(strcmp(input,"END")==0) {
             freeMatrix(firMatrix);
+            shmctl(shm_id, IPC_RMID, NULL);
             break;
         }
         if(strcmp(input,"TRANSPOSE\n")==0 || strcmp(input,"NOT\n")==0) {
             printf("Here 1\n");
-            saveToShm(firMatrix,input,matrix_storage_start,mat_counter,sem);
+            saveToShm(firMatrix, input, storageStart, mat_counter, sem);
             freeMatrix(firMatrix);
         }
         else {
@@ -106,8 +109,8 @@ int main() {
             scanf("%s", op);
             getchar();
 
-            saveToShm(firMatrix,op, matrix_storage_start, mat_counter, sem);
-            saveToShm(secMatrix,op, matrix_storage_start, mat_counter, sem);
+            saveToShm(firMatrix, op, storageStart, mat_counter, sem);
+            saveToShm(secMatrix, op, storageStart, mat_counter, sem);
 
             freeMatrix(firMatrix);
             freeMatrix(secMatrix);
@@ -117,7 +120,7 @@ int main() {
     sem_destroy(sem);
 
     //detach and remove shared memory
-    shmdt(shm_addr);
+    shmdt(shmat(shm_id, NULL, 0));
     shmctl(shm_id, IPC_RMID, NULL);
 
     return 0;

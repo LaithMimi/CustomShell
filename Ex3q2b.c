@@ -10,11 +10,12 @@
 #define MAX_SIZE 128
 #define MAX_SHM 2048
 #define MAX_OP_LEN 16
+typedef complex double cmpdouble;
 
 typedef struct {
     int rows;
     int cols;
-    complex double data[1];
+    cmpdouble data[1];
 } Matrix;
 
 typedef struct {
@@ -25,23 +26,23 @@ typedef struct {
 typedef struct {
     int rows;
     int cols;
-    complex double data[1];
+    cmpdouble data[1];
 } ResultMatrix;
 
 // Function declarations
 shmData* readMatrixData(void *shm_addr, int mat_counter, size_t total_size);
-int matrixType(complex double *matrix, int rows, int cols);
+int matrixType(cmpdouble *matrix, int rows, int cols);
 void freeMatrix(ResultMatrix *matrix);
 void printMatrix(ResultMatrix* matrix);
 
 ResultMatrix *createMatrix(int rows, int cols);
-ResultMatrix *ADDMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-ResultMatrix *SUBMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-ResultMatrix *MULMatrices(complex double *firMatrix, complex double *secMatrix, int rows1, int cols1, int rows2, int cols2);
-ResultMatrix *TRANSPOSEMatrices(complex double *matrix, int rows, int cols);
-ResultMatrix *logANDmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-ResultMatrix *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols);
-ResultMatrix *logNOTmatrices(complex double *matrix, int rows, int cols);
+ResultMatrix *ADD(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols);
+ResultMatrix *SUB(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols);
+ResultMatrix *MUL(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows1, int cols1, int rows2, int cols2);
+ResultMatrix *TRANSPOSE(cmpdouble *matrix, int rows, int cols);
+ResultMatrix *AND(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols);
+ResultMatrix *OR(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols);
+ResultMatrix *NOT(cmpdouble *matrix, int rows, int cols);
 
 int main() {
     key_t key = ftok("/tmp", 'r');
@@ -51,22 +52,18 @@ int main() {
         exit(1);
     }
 
-    void *shm_addr = shmat(shm_id, NULL, 0);
-    if (shm_addr == (void *)-1) {
+    if (shmat(shm_id, NULL, 0) == (void *)-1) {
         perror("shmat");
         exit(1);
     }
 
-    int *mat_counter = (int *)shm_addr;
-    sem_t *sem = (sem_t *)(shm_addr + sizeof(int));
-    void *matrix_storage_start = shm_addr + sizeof(int) + sizeof(sem_t);
-
-    size_t total_size = sizeof(shmData) + (MAX_SIZE - 1) * sizeof(complex double);
+    int *mat_counter = (int *) shmat(shm_id, NULL, 0);
+    sem_t *sem = (sem_t *) (shmat(shm_id, NULL, 0) + sizeof(int));
+    void *storageStart = shmat(shm_id, NULL, 0) + sizeof(int) + sizeof(sem_t);
+    size_t total_size = sizeof(shmData) + (MAX_SIZE - 1) * sizeof(cmpdouble);
 
     while (1) {
        // printf("Waiting for matrix operations...\n");
-
-/*there is problems*/
 
         sem_wait(sem);
 
@@ -78,39 +75,43 @@ int main() {
 
         // Read all matrix operations from shared memory
         for (int i = 0; i < *mat_counter; i++) {
-            shmData *firMatrix = readMatrixData(matrix_storage_start, i, total_size);
+            shmData *firMatrix = readMatrixData(storageStart, i, total_size);
             if (firMatrix == NULL) continue;
 
             ResultMatrix *result = NULL;
             if (strcmp(firMatrix->operation, "NOT") == 0) {
-                result = (ResultMatrix *) logNOTmatrices(firMatrix->matrix.data, firMatrix->matrix.rows,
-                                                         firMatrix->matrix.cols);
+                result = (ResultMatrix *) NOT(firMatrix->matrix.data, firMatrix->matrix.rows,
+                                              firMatrix->matrix.cols);
             }
             else if (strcmp(firMatrix->operation, "TRANSPOSE") == 0) {
-                result = (ResultMatrix *) TRANSPOSEMatrices(firMatrix->matrix.data, firMatrix->matrix.rows,
-                                                            firMatrix->matrix.cols);
+                result = (ResultMatrix *) TRANSPOSE(firMatrix->matrix.data, firMatrix->matrix.rows,
+                                                    firMatrix->matrix.cols);
             }
             else if (i + 1 < *mat_counter) {
-                shmData *secMatrix = readMatrixData(matrix_storage_start, i + 1, total_size);
+                shmData *secMatrix = readMatrixData(storageStart, i + 1, total_size);
                 if (secMatrix == NULL) continue;
                 if (strcmp(firMatrix->operation, "ADD") == 0) {
-                    result = (ResultMatrix *) ADDMatrices(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                          firMatrix->matrix.rows, firMatrix->matrix.cols);
-                } else if (strcmp(firMatrix->operation, "SUB") == 0) {
-                    result = (ResultMatrix *) SUBMatrices(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                          firMatrix->matrix.rows, firMatrix->matrix.cols);
-                } else if (strcmp(firMatrix->operation, "MUL") == 0) {
-                    result = (ResultMatrix *) MULMatrices(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                          firMatrix->matrix.rows, firMatrix->matrix.cols,
-                                                          secMatrix->matrix.rows, secMatrix->matrix.cols);
-                } else if (strcmp(firMatrix->operation, "AND") == 0) {
-                    result = (ResultMatrix *) logANDmatrices(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                             firMatrix->matrix.rows, firMatrix->matrix.cols);
-                } else if (strcmp(firMatrix->operation, "OR") == 0) {
-                    result = (ResultMatrix *) logORmatrices(firMatrix->matrix.data, secMatrix->matrix.data,
-                                                            firMatrix->matrix.rows, firMatrix->matrix.cols);
+                    result = (ResultMatrix *) ADD(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                  firMatrix->matrix.rows, firMatrix->matrix.cols);
                 }
-                i++; // Skip the next matrix as we've used it in this operation
+                else if (strcmp(firMatrix->operation, "SUB") == 0) {
+                    result = (ResultMatrix *) SUB(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                  firMatrix->matrix.rows, firMatrix->matrix.cols);
+                }
+                else if (strcmp(firMatrix->operation, "MUL") == 0) {
+                    result = (ResultMatrix *) MUL(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                  firMatrix->matrix.rows, firMatrix->matrix.cols,
+                                                  secMatrix->matrix.rows, secMatrix->matrix.cols);
+                }
+                else if (strcmp(firMatrix->operation, "AND") == 0) {
+                    result = (ResultMatrix *) AND(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                  firMatrix->matrix.rows, firMatrix->matrix.cols);
+                }
+                else if (strcmp(firMatrix->operation, "OR") == 0) {
+                    result = (ResultMatrix *) OR(firMatrix->matrix.data, secMatrix->matrix.data,
+                                                 firMatrix->matrix.rows, firMatrix->matrix.cols);
+                }
+                i++; //skip the next matrix as we've used it in this operation
             }
             if (result != NULL) {
                 printf("Result: ");
@@ -140,7 +141,7 @@ int main() {
         }
     }
 
-    if (shmdt(shm_addr) == -1) {
+    if (shmdt(shmat(shm_id, NULL, 0)) == -1) {
         perror("shmdt");
     }
 
@@ -152,7 +153,7 @@ shmData* readMatrixData(void *shm_addr, int mat_counter, size_t total_size) {
     return (shmData *)target_addr;
 }
 
-int matrixType(complex double *matrix, int rows, int cols) {
+int matrixType(cmpdouble *matrix, int rows, int cols) {
     int is_integer = 1, is_real = 1;
     for (int i = 0; i < rows * cols; i++) {
         double real = creal(matrix[i]);
@@ -172,7 +173,8 @@ int matrixType(complex double *matrix, int rows, int cols) {
 }
 void freeMatrix(ResultMatrix *matrix) {
     free(matrix);
-}void printMatrix(ResultMatrix* matrix) {
+}
+void printMatrix(ResultMatrix* matrix) {
     printf("(%d,%d:", matrix->rows, matrix->cols);
     int type = matrixType(matrix->data, matrix->rows, matrix->cols);
     for (int i = 0; i < matrix->rows; i++) {
@@ -201,7 +203,7 @@ void freeMatrix(ResultMatrix *matrix) {
     printf(")\n");
 }
 
-ResultMatrix *logNOTmatrices(complex double *matrix, int rows, int cols) {
+ResultMatrix *NOT(cmpdouble *matrix, int rows, int cols) {
     ResultMatrix *result = createMatrix(rows, cols);
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -210,7 +212,7 @@ ResultMatrix *logNOTmatrices(complex double *matrix, int rows, int cols) {
     }
     return result;
 }
-ResultMatrix *logORmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
+ResultMatrix *OR(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols) {
     ResultMatrix *result = createMatrix(rows, cols);
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -219,7 +221,7 @@ ResultMatrix *logORmatrices(complex double *firMatrix, complex double *secMatrix
     }
     return result;
 }
-ResultMatrix *logANDmatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
+ResultMatrix *AND(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols) {
     ResultMatrix *result = createMatrix(rows, cols);
     for (int i = 0; i < rows; i++) {
        for (int j = 0; j < cols; j++) {
@@ -228,7 +230,7 @@ ResultMatrix *logANDmatrices(complex double *firMatrix, complex double *secMatri
     }
     return result;
 }
-ResultMatrix *TRANSPOSEMatrices(complex double *matrix, int rows, int cols) {
+ResultMatrix *TRANSPOSE(cmpdouble *matrix, int rows, int cols) {
     ResultMatrix *result = createMatrix(cols, rows);
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -237,7 +239,7 @@ ResultMatrix *TRANSPOSEMatrices(complex double *matrix, int rows, int cols) {
     }
     return result;
 }
-ResultMatrix *MULMatrices(complex double *firMatrix, complex double *secMatrix, int rows1, int cols1, int rows2, int cols2) {
+ResultMatrix *MUL(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows1, int cols1, int rows2, int cols2) {
     ResultMatrix *result = createMatrix(rows1, cols2);
     for (int i = 0; i < rows1; i++) {
         for (int j = 0; j < cols2; j++) {
@@ -249,7 +251,7 @@ ResultMatrix *MULMatrices(complex double *firMatrix, complex double *secMatrix, 
     }
     return result;
 }
-ResultMatrix *SUBMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
+ResultMatrix *SUB(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols) {
     ResultMatrix *result = createMatrix(rows, cols);
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -258,7 +260,7 @@ ResultMatrix *SUBMatrices(complex double *firMatrix, complex double *secMatrix, 
     }
     return result;
 }
-ResultMatrix *ADDMatrices(complex double *firMatrix, complex double *secMatrix, int rows, int cols) {
+ResultMatrix *ADD(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols) {
     ResultMatrix *result = createMatrix(rows, cols);
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -267,6 +269,7 @@ ResultMatrix *ADDMatrices(complex double *firMatrix, complex double *secMatrix, 
     }
     return result;
 }
+
 ResultMatrix *createMatrix(int rows, int cols) {
     size_t size = sizeof(ResultMatrix) + (rows * cols - 1) * sizeof(complex double);
     ResultMatrix* result = (ResultMatrix*)malloc(size);
