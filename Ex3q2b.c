@@ -15,7 +15,7 @@ typedef complex double cmpdouble;
 typedef struct {
     int rows;
     int cols;
-    cmpdouble data[1];
+    cmpdouble data[MAX_SIZE];
 } Matrix;
 
 typedef struct {
@@ -26,7 +26,7 @@ typedef struct {
 typedef struct {
     int rows;
     int cols;
-    cmpdouble data[1];
+    cmpdouble data[MAX_SIZE];
 } ResultMatrix;
 
 // Function declarations
@@ -45,7 +45,7 @@ ResultMatrix *OR(cmpdouble *firMatrix,cmpdouble *secMatrix, int rows, int cols);
 ResultMatrix *NOT(cmpdouble *matrix, int rows, int cols);
 
 int main() {
-    key_t key = ftok("/tmp", 'r');
+    key_t key = ftok("/tmp", 'Y');
     int shm_id = shmget(key, MAX_SHM, 0666);
     if (shm_id == -1) {
         perror("shmget");
@@ -63,12 +63,10 @@ int main() {
     size_t total_size = sizeof(shmData) + (MAX_SIZE - 1) * sizeof(cmpdouble);
 
     while (1) {
-       // printf("Waiting for matrix operations...\n");
+        sem_wait(sem); //wait for the sem to be available
 
-        sem_wait(sem);
-
-        if (*mat_counter == 0) {
-            sem_post(sem);
+        if (*mat_counter == 0) { //if no matrices
+            sem_post(sem);//release the sem
             sleep(1);
             continue;
         }
@@ -77,37 +75,44 @@ int main() {
         for (int i = 0; i < *mat_counter; i++) {
             shmData *firMatrix = readMatrixData(storageStart, i, total_size);
             if (firMatrix == NULL) continue;
+            if (strcmp(firMatrix->operation, "END") == 0) {
+                sem_post(sem);
+                sem_destroy(sem);
+                shmdt(mat_counter);
+                shmctl(shm_id, IPC_RMID, NULL);
+                exit(0);
+            }
 
             ResultMatrix *result = NULL;
-            if (strcmp(firMatrix->operation, "NOT") == 0) {
+            if (strcmp(firMatrix->operation, "NOT\n") == 0) {
                 result = (ResultMatrix *) NOT(firMatrix->matrix.data, firMatrix->matrix.rows,
                                               firMatrix->matrix.cols);
             }
-            else if (strcmp(firMatrix->operation, "TRANSPOSE") == 0) {
+            else if (strcmp(firMatrix->operation, "TRANSPOSE\n") == 0) {
                 result = (ResultMatrix *) TRANSPOSE(firMatrix->matrix.data, firMatrix->matrix.rows,
                                                     firMatrix->matrix.cols);
             }
             else if (i + 1 < *mat_counter) {
                 shmData *secMatrix = readMatrixData(storageStart, i + 1, total_size);
                 if (secMatrix == NULL) continue;
-                if (strcmp(firMatrix->operation, "ADD") == 0) {
+                if (strcmp(firMatrix->operation, "ADD\n") == 0) {
                     result = (ResultMatrix *) ADD(firMatrix->matrix.data, secMatrix->matrix.data,
                                                   firMatrix->matrix.rows, firMatrix->matrix.cols);
                 }
-                else if (strcmp(firMatrix->operation, "SUB") == 0) {
+                else if (strcmp(firMatrix->operation, "SUB\n") == 0) {
                     result = (ResultMatrix *) SUB(firMatrix->matrix.data, secMatrix->matrix.data,
                                                   firMatrix->matrix.rows, firMatrix->matrix.cols);
                 }
-                else if (strcmp(firMatrix->operation, "MUL") == 0) {
+                else if (strcmp(firMatrix->operation, "MUL\n") == 0) {
                     result = (ResultMatrix *) MUL(firMatrix->matrix.data, secMatrix->matrix.data,
                                                   firMatrix->matrix.rows, firMatrix->matrix.cols,
                                                   secMatrix->matrix.rows, secMatrix->matrix.cols);
                 }
-                else if (strcmp(firMatrix->operation, "AND") == 0) {
+                else if (strcmp(firMatrix->operation, "AND\n") == 0) {
                     result = (ResultMatrix *) AND(firMatrix->matrix.data, secMatrix->matrix.data,
                                                   firMatrix->matrix.rows, firMatrix->matrix.cols);
                 }
-                else if (strcmp(firMatrix->operation, "OR") == 0) {
+                else if (strcmp(firMatrix->operation, "OR\n") == 0) {
                     result = (ResultMatrix *) OR(firMatrix->matrix.data, secMatrix->matrix.data,
                                                  firMatrix->matrix.rows, firMatrix->matrix.cols);
                 }
@@ -122,28 +127,11 @@ int main() {
             }
 
         }
-        *mat_counter = 0;
-
-        sem_post(sem);
-
-        printf("Enter 'REFRESH' to read again or 'END' to exit: ");
-        char command[MAX_SIZE];
-        if (fgets(command, MAX_SIZE, stdin) == NULL) {
-            perror("fgets");
-            break;
-        }
-        command[strcspn(command, "\n")] = 0;
-
-        if (strcmp(command, "END") == 0) {
-            break;
-        }else if (strcmp(command, "REFRESH") != 0) {
-            printf("Invalid command. Please enter 'REFRESH' or 'END'.\n");
-        }
+        *mat_counter = 0; //reset the counter to indicate all matrices have been processed
+        sem_post(sem); //release the semaphore
     }
 
-    if (shmdt(shmat(shm_id, NULL, 0)) == -1) {
-        perror("shmdt");
-    }
+    shmdt(shmat(shm_id, NULL, 0));
 
     return 0;
 }

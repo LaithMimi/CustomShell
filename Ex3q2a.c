@@ -13,7 +13,7 @@ typedef complex double cmpdouble;
 typedef struct {
     int rows;
     int cols;
-    cmpdouble data[1];
+    cmpdouble data[128];
 } Matrix;
 
 typedef struct {
@@ -36,7 +36,7 @@ int main() {
     int rows1, cols1, rows2, cols2;
 
 
-    key_t key = ftok("/tmp", 'r');
+    key_t key = ftok("/tmp", 'Y');
 
     // Allocate a shared memory segment
     shm_id = shmget(key, MAX_SHM, IPC_CREAT | IPC_EXCL | 0600);
@@ -66,15 +66,20 @@ int main() {
     //do the writing job
     while (1) {
         printf("Enter matrix (rows,cols:val1,val2,...,valN) or 'END' to exit:\n");
-        if (fgets(input, sizeof(input), stdin) == NULL) {
+        if (fgets(input, sizeof(input), stdin) == NULL)
             break;
-        }
-        input[strcspn(input, "\n")] = '\0';
-        if (strcmp(input, "END") == 0) {
-            shmctl(shm_id, IPC_RMID, NULL);
-            break;
-        }
 
+        input[strcspn(input, "\n")] = '\0';
+        if (strcmp(input, "END") == 0){
+            sem_wait(sem);
+            // Set end signal
+            shmData *endSignal = (shmData *)(storageStart + (*mat_counter * sizeof(shmData)));
+            endSignal->operation[MAX_OP_LEN - 1] = '\0';
+            strcpy(endSignal->operation, "END");
+            (*mat_counter)++;
+            sem_post(sem);
+            break;
+        }
         firMatrix = inputMatrix(input,&rows1,&cols1);
         if (!firMatrix) {
             printf("Invalid format. Please use 'rows,cols:val1,val2,...,valN'.\n");
@@ -90,11 +95,16 @@ int main() {
         input[strcspn(input,"\n")]='\n';
         if(strcmp(input,"END")==0) {
             freeMatrix(firMatrix);
-            shmctl(shm_id, IPC_RMID, NULL);
+            sem_wait(sem);
+            // Set end signal
+            shmData *endSignal = (shmData *)(storageStart + (*mat_counter * (sizeof(shmData) + (MAX_SHM - 1) * sizeof(cmpdouble))));
+            endSignal->operation[MAX_OP_LEN - 1] = '\0';
+            strcpy(endSignal->operation, "END");
+            (*mat_counter)++;
+            sem_post(sem);
             break;
         }
         if(strcmp(input,"TRANSPOSE\n")==0 || strcmp(input,"NOT\n")==0) {
-            printf("Here 1\n");
             saveToShm(firMatrix, input, storageStart, mat_counter, sem);
             freeMatrix(firMatrix);
         }
@@ -126,32 +136,33 @@ int main() {
     return 0;
 }
 
-Matrix *inputMatrix(char input[128],int *rows, int *cols) {
-    if(sscanf(input, "(%d,%d:",rows,cols)!=2) {
+Matrix *inputMatrix(char input[128], int *rows, int *cols) {
+    if (sscanf(input, "(%d,%d:", rows, cols) != 2) {
         perror("Invalid matrix format");
         return NULL;
     }
 
-    Matrix *matrix = createMatrix(*rows,*cols);
+    Matrix *matrix = createMatrix(*rows, *cols);
 
-    char *token = strtok(input, ":");
-    if (token == NULL) {
+    // Move the input pointer to the data section
+    char *data = strchr(input, ':');
+    if (!data) {
         freeMatrix(matrix);
         perror("Invalid matrix data format");
         return NULL;
     }
+    data++; // Skip the ':'
 
-    token = strtok(NULL, ",");
-
+    char *token = strtok(data, ",)");
     for (int i = 0; i < *rows; i++) {
         for (int j = 0; j < *cols; j++) {
-            if (token == NULL) {
+            if (!token) {
                 freeMatrix(matrix);
                 perror("Insufficient matrix data");
                 return NULL;
             }
 
-            double real = 0, imag = 0;
+            double real = 0.0, imag = 0.0;
             char *i_char = strchr(token, 'i');
 
             if (i_char) {
@@ -174,6 +185,7 @@ Matrix *inputMatrix(char input[128],int *rows, int *cols) {
     }
     return matrix;
 }
+
 
 Matrix *createMatrix(int rows, int cols) {
     size_t struct_size = sizeof(Matrix) + rows * cols * sizeof(complex double) - sizeof(complex double);
