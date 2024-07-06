@@ -5,7 +5,6 @@
 #include <sys/shm.h>
 #include <semaphore.h>
 
-
 #define SHM_SIZE 2048
 #define MAX_OP_LEN 16
 
@@ -49,7 +48,7 @@ void readFromShm(void* shm_addr, Matrix *matrix, char *operation) {
         memcpy(matrix->complex_data, shm_addr + offset, n * sizeof(Complex));
         offset += n * sizeof(Complex);
     }
-    memcpy(operation, shm_addr + offset, sizeof(char));
+    memcpy(operation, shm_addr + offset, MAX_OP_LEN);
 }
 
 void printMatrix(Matrix *matrix) {
@@ -61,7 +60,7 @@ void printMatrix(Matrix *matrix) {
         } else if (matrix->type == 1) {
             printf("%f", matrix->double_data[i]);
         } else if (matrix->type == 2) {
-            printf("%d+ddi",(int) matrix->complex_data[i].real,(int) matrix->complex_data[i].imag);
+            printf("%f+%fi", matrix->complex_data[i].real, matrix->complex_data[i].imag);
         }
         if (i < n - 1) printf(",");
     }
@@ -77,7 +76,6 @@ void freeMatrix(Matrix *matrix) {
         free(matrix->complex_data);
     }
 }
-
 void ADD(Matrix *result, Matrix *m1, Matrix *m2) {
     result->rows = m1->rows;
     result->cols = m1->cols;
@@ -239,31 +237,6 @@ void MUL(Matrix *result, Matrix *m1, Matrix *m2) {
     }
 }
 
-void NOT(Matrix *result, Matrix *m) {
-    result->rows = m->rows;
-    result->cols = m->cols;
-    result->type = m->type;
-    int n = result->rows * result->cols;
-
-    if (result->type == 0) {
-        result->int_data = malloc(n * sizeof(int));
-        for (int i = 0; i < n; i++) {
-            result->int_data[i] = ~m->int_data[i];
-        }
-    } else if (result->type == 1) {
-        result->double_data = malloc(n * sizeof(double));
-        for (int i = 0; i < n; i++) {
-            result->double_data[i] = -m->double_data[i];
-        }
-    } else if (result->type == 2) {
-        result->complex_data = malloc(n * sizeof(Complex));
-        for (int i = 0; i < n; i++) {
-            result->complex_data[i].real = -m->complex_data[i].real;
-            result->complex_data[i].imag = -m->complex_data[i].imag;
-        }
-    }
-}
-
 void AND(Matrix *result, Matrix *m1, Matrix *m2) {
     if (m1->type != 0 || m2->type != 0) {
         printf("Error: AND operation is only for integer (binary) matrices\n");
@@ -294,7 +267,7 @@ void OR(Matrix *result, Matrix *m1, Matrix *m2) {
     }
 }
 
-void notMatrix(Matrix *result, Matrix *m) {
+void NOT(Matrix *result, Matrix *m) {
     result->rows = m->rows;
     result->cols = m->cols;
     result->type = m->type;
@@ -303,7 +276,7 @@ void notMatrix(Matrix *result, Matrix *m) {
     if (result->type == 0) {
         result->int_data = malloc(n * sizeof(int));
         for (int i = 0; i < n; i++) {
-            result->int_data[i] = ~m->int_data[i];
+            result->int_data[i]  = (m->int_data[i] == 0) ? 1 : 0;
         }
     } else {
         printf("Error: NOT operation is only for integer (binary) matrices\n");
@@ -316,41 +289,41 @@ int main() {
     Matrix matrix1, matrix2, result;
     char operation[MAX_OP_LEN];
     sem_t* sem;
+    key_t key = ftok("/tmp", 'l');
 
-    key_t key = ftok("/tmp", 'm');
-    shm_id = shmget(key, SHM_SIZE, 0600);
-    if (shm_id == -1) {
+    // Get shared memory
+    if ((shm_id = shmget(key, SHM_SIZE, 0600)) == -1) {
         perror("reader: shmget");
-        exit(1);
     }
+    printf("DEBUG: Shared memory segment obtained\n");
 
-    shm_addr = shmat(shm_id, NULL, 0);
-    if (shm_addr == (void*)-1) {
+    // Attach to shared memory
+    if ((shm_addr = shmat(shm_id, NULL, 0)) == (void*)-1) {
         perror("reader: shmat");
-        exit(1);
     }
+    printf("DEBUG: Attached to shared memory\n");
 
-    sem = sem_open("/shm_sem", 0);
-    if (sem == SEM_FAILED) {
+    // Open semaphore
+    if ((sem = sem_open("/shm_sem", 0)) == SEM_FAILED) {
         perror("reader: sem_open");
-        exit(1);
     }
+    printf("DEBUG: Semaphore opened\n");
 
     while(1) {
+        // Wait on semaphore - uncomment this for proper synchronization
         if (sem_wait(sem) == -1) {
             perror("reader: sem_wait");
-            exit(1);
         }
+        printf("DEBUG: Semaphore acquired\n");
 
         readFromShm(shm_addr, &matrix1, operation);
 
         if (strcmp(operation, "END") == 0) {
-            if (sem_post(sem) == -1) {
-                perror("reader: sem_post");
-                exit(1);
-            }
+            printf("DEBUG: Received END operation\n");
             break;
         }
+
+        printf("DEBUG: Processing operation: %s\n", operation);
 
         if (strcmp(operation, "TRANSPOSE") == 0) {
             TRANSPOSE(&result, &matrix1);
@@ -358,6 +331,7 @@ int main() {
             NOT(&result, &matrix1);
         } else {
             readFromShm(shm_addr + SHM_SIZE/2, &matrix2, operation);
+            printf("DEBUG: Read second matrix for binary operation\n");
 
             if (strcmp(operation, "ADD") == 0) {
                 ADD(&result, &matrix1, &matrix2);
@@ -373,10 +347,16 @@ int main() {
             }
             else if (strcmp(operation, "OR") == 0) {
                 OR(&result, &matrix1, &matrix2);
-            }else {
-                printf("Unknown operation: %s\n", operation);
             }
-
+            else {
+                printf("Unknown operation: %s\n", operation);
+                freeMatrix(&matrix1);
+                freeMatrix(&matrix2);
+                if (sem_post(sem) == -1) {
+                    perror("reader: sem_post");
+                }
+                continue;
+            }
             freeMatrix(&matrix2);
         }
 
@@ -389,17 +369,29 @@ int main() {
 
         if (sem_post(sem) == -1) {
             perror("reader: sem_post");
-            exit(1);
         }
+        printf("DEBUG: Semaphore released\n");
+
     }
 
+    // Cleanup
     if (sem_close(sem) == -1) {
         perror("reader: sem_close");
     }
 
+
+    printf("DEBUG: Semaphore closed\n");
+
     if (shmdt(shm_addr) == -1) {
         perror("reader: shmdt");
     }
+    printf("DEBUG: Detached from shared memory\n");
+
+    // Consider adding shared memory removal here if this is the last process to use it
+     if (shmctl(shm_id, IPC_RMID, NULL) == -1) {
+         perror("reader: shmctl");
+     }
+     printf("DEBUG: Shared memory segment removed\n");
 
     return 0;
 }
